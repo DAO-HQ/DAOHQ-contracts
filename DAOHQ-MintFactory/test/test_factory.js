@@ -3,9 +3,9 @@ var fs = require('fs');
 
 const web3 = new Web3(new Web3.providers.HttpProvider("HTTP://127.0.0.1:9545"));
 
-var erc20abi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-MintFactory/build/contracts/IERC20.json")).abi;
-var factoryAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-MintFactory/build/contracts/MintFactory.json")).abi;
-var mintAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-MintFactory/build/contracts/TokenMint.json")).abi;
+var erc20abi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-MintFactory/build/contracts/IERC20.json")).abi;
+var factoryAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-MintFactory/build/contracts/MintFactory.json")).abi;
+var mintAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-MintFactory/build/contracts/TokenMint.json")).abi;
 var tokenAddr = "0x78535BB7f5712d6b8B386677be0e28683f5ed2f4"
 var factoryAddr = "0x5DB8c3327dA34bbE09778a49bED077A4372B50c8"
 
@@ -158,11 +158,11 @@ let boostAmoutns = [10, 20];
 
 //addBoost(tokenOwner, boostlevels, boostAmoutns);
 
-//mintTest(6, 5, 1.1)
+mintTest(6, 5, 1.1)
 
 //withdrawProceed(tokenOwner)
 
-withdrawFees(factoryOwnerOp)
+//withdrawFees(factoryOwnerOp)
 
 //changeMintPrice(tokenOwner, 1)
 
