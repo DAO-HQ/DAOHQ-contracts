@@ -786,16 +786,28 @@ contract DaoHqRouter{
     }
 }
 
+interface IUniswapV2Pair {
+    function factory() external view returns (address);
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+}
+interface IUniswapV2Factory{
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
 contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
     using SafeERC20 for IERC20;
 
     uint256 public fees;
+    mapping(address => bool) private _validFactories;
 
     event EtherTransfer(address indexed from, address indexed to, uint256 value);
     event ERC20Swap(address indexed inToken, uint256 amount);
 
     constructor(uint256 _fees) {
         fees = _fees;
+        _validFactories[0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f] = true;
+        _validFactories[0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac] = true;
     }
 
     function setFees(uint256 _fees) external onlyOwner {
@@ -811,6 +823,18 @@ contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
         emit EtherTransfer(address(this), to, amountToTransfer);
     }
 
+    function _preSwapValidation(address srcToken, bytes32[] calldata path) internal view {
+        for(uint i = 1; i < path.length; i ++){
+            IUniswapV2Pair pair = IUniswapV2Pair(address(uint160(uint256(path[i]))));
+            address factory = pair.factory();
+            require(_validFactories[factory], "Not a supported facorty pair");
+            address token0 = pair.token0();
+            address token1 = pair.token1();
+            if(i == 0) require(token0 == srcToken || token1 == srcToken, "path not correlated to src token");
+            require(IUniswapV2Factory(factory).getPair(token0, token1) == address(pair), "Not an existing pair from supported factories");
+        }
+    }
+
     function swapExactETHForTokens(address src, uint256 amountIn, uint256 amountOutMin, bytes32[] calldata path) external payable 
     returns (uint256 amount) {
         
@@ -822,7 +846,7 @@ contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
 
     function swapExactTokensForETH(address src, uint256 amountIn, uint256 amountOutMin, bytes32[] calldata path) 
     external nonReentrant returns (uint amountOut) {
-
+        _preSwapValidation(src, path);
         uint256 initialBalance = address(this).balance;
         amountOut = hqswap(IERC20(src),
                             amountIn,
@@ -837,7 +861,7 @@ contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
     function swapExactTokensForTokens(address src, uint256 amountIn, uint256 amountOutMin,
     bytes32[] calldata path)
     external nonReentrant returns(uint amountTransferOut){
-
+        _preSwapValidation(src, path);
         uint amountAfterFee = (amountIn * (10000 - fees)) / 10000;
         IERC20(src).safeTransferFrom(msg.sender, address(this), amountIn - amountAfterFee);
 
