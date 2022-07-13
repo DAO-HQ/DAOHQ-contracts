@@ -2,8 +2,8 @@ const DAOHqSwap = artifacts.require("DAOHqSwap");
 var fs = require('fs');
 /*
  * See docs: https://www.trufflesuite.com/docs/truffle/testing/writing-tests-in-javascript
- * Transaction Hashes are generated from 1inch API
  * requires an ETH Mainnet Ganache fork as Dev URL
+ * Rout calculation mirrors functions used on frontend. Currently executing transactions at Market Price(ie no minAmountOut)
  */
 
 // Change on other systems
