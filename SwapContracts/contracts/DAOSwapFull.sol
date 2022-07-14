@@ -610,9 +610,9 @@ abstract contract ReentrancyGuard {
 
 pragma solidity ^0.8.0;
 
-
-
-
+/// @title DAOHQ Router 
+/// @author DAOHQ, adapted from 1inch: v4 router
+/// @notice preforms swaps across path directly on Uniswap pairs from source to destination token
 contract DaoHqRouter{
     uint256 private constant _TRANSFER_FROM_CALL_SELECTOR_32 = 0x23b872dd00000000000000000000000000000000000000000000000000000000;
     uint256 private constant _WETH_DEPOSIT_CALL_SELECTOR_32 = 0xd0e30db000000000000000000000000000000000000000000000000000000000;
@@ -723,7 +723,6 @@ contract DaoHqRouter{
                 if callvalue() {
                     revertWithReason(0x00000011696e76616c6964206d73672e76616c75650000000000000000000000, 0x55)  // "invalid msg.value"
                 }
-                //fix caller transfer total
                 mstore(emptyPtr, _TRANSFER_FROM_CALL_SELECTOR_32)
                 mstore(add(emptyPtr, 0x4), caller())
                 mstore(add(emptyPtr, 0x24), and(rawPair, _ADDRESS_MASK))
@@ -795,6 +794,9 @@ interface IUniswapV2Factory{
     function getPair(address tokenA, address tokenB) external view returns (address pair);
 }
 
+/// @title DAOHQ Swap Wrapper
+/// @author DAOHQ
+/// @notice Preforms token swaps facilitated by DAOHQ
 contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
     using SafeERC20 for IERC20;
 
@@ -806,14 +808,22 @@ contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
 
     constructor(uint256 _fees) {
         fees = _fees;
+        //factories are immutable, require contract upgrade to add
         _validFactories[0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f] = true;
         _validFactories[0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac] = true;
     }
 
+    /// @notice Allows owner of contract owner to update fees
+    /// @dev fees denomination is _fee/10000
+    /// @param _fees percent fee of 10000 to update
     function setFees(uint256 _fees) external onlyOwner {
         fees = _fees;
     }
 
+    /// @notice Transfers eth amount after removing fee
+    /// @dev output amount will be amount - fee calculation(see implementation)
+    /// @param amount wei amount of ETH to transfer
+    /// @param to address to transfer to
     function transfer(uint amount, address to) internal {
         uint256 amountToTransfer = (amount * (10000 - fees)) / 10000;
 
@@ -823,6 +833,9 @@ contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
         emit EtherTransfer(address(this), to, amountToTransfer);
     }
 
+    /// @notice Preforms pre-swap security validations
+    /// @param srcToken source token address
+    /// @param path LP path array with router prefix 
     function _preSwapValidation(address srcToken, bytes32[] calldata path) internal view {
         for(uint i = 1; i < path.length; i ++){
             IUniswapV2Pair pair = IUniswapV2Pair(address(uint160(uint256(path[i]))));
@@ -835,6 +848,13 @@ contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
         }
     }
 
+    /// @notice swaps value of exact value of ETH sent for token at end of path
+    /// @dev deducts fee and iterates swap over pairs provided in path. See hqswap specifics for path specs
+    /// @param src address of source token, must be address(0)
+    /// @param amountIn Amount of ERC20 In, not used in this function
+    /// @param amountOutMin the minimum of destination token to allow returned
+    /// @param path array of LP pairs prefixed with hqswap specs
+    /// @return amount Amount of destination token returned
     function swapExactETHForTokens(address src, uint256 amountIn, uint256 amountOutMin, bytes32[] calldata path) external payable 
     returns (uint256 amount) {
         
@@ -844,6 +864,13 @@ contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
                         afterDeductingFees, amountOutMin, path);
     }
 
+    /// @notice swaps value of exact value of Tokens sent for ETH
+    /// @dev deducts fee and iterates swap over pairs provided in path. See hqswap specifics for path specs
+    /// @param src address of source ERC20 token address
+    /// @param amountIn Amount of src ERC20 to swap
+    /// @param amountOutMin the minimum of destination token to allow returned
+    /// @param path array of LP pairs prefixed with hqswap specs
+    /// @return amountOut Amount of destination token(ETH) returned
     function swapExactTokensForETH(address src, uint256 amountIn, uint256 amountOutMin, bytes32[] calldata path) 
     external nonReentrant returns (uint amountOut) {
         _preSwapValidation(src, path);
@@ -857,7 +884,15 @@ contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
 
         transfer(amountOut, msg.sender);
     }
-  
+    
+    /// @notice swaps value of exact value of Tokens sent for ETH
+    /// @dev deducts fee and iterates swap over pairs provided in path. See hqswap specifics for path specs
+    /// @dev WARNING: if swapping to WETH ERC20 token, do not include WETH mask for hqswap specs
+    /// @param src address of source ERC20 token address
+    /// @param amountIn Amount of src ERC20 to swap
+    /// @param amountOutMin the minimum of destination token to allow returned
+    /// @param path array of LP pairs prefixed with hqswap specs
+    /// @return amountTransferOut Amount of destination token returned
     function swapExactTokensForTokens(address src, uint256 amountIn, uint256 amountOutMin,
     bytes32[] calldata path)
     external nonReentrant returns(uint amountTransferOut){
@@ -873,15 +908,19 @@ contract DAOHqSwap is Ownable, ReentrancyGuard, DaoHqRouter {
         emit ERC20Swap(src, amountIn);
     }
 
-    /**
-     * @dev Withdraw Fees
-     */
+    /// @notice Allows contract owner to withdraw fee balance
+    /// @param weiAmount amount of ETH in wei to withdraw
+    /// @param to Address to withdraw ETH to
     function withdrawFees(uint256 weiAmount, address to) external onlyOwner {
         require(address(this).balance >= weiAmount, "insufficient ETH balance");
         (bool sent, ) = payable(to).call{value: weiAmount}("");
         require(sent, "Failed to withdraw");
     }
 
+    /// @notice Allows owner to withdraw any ERC20 fee
+    /// @dev holdings data not stored by contract, can be accessed via on chain data
+    /// @param token Address of ERC20 token to withdraw
+    /// @param to Address to withdraw to
     function withdrawERCFees(address token, address to) external onlyOwner{
         uint256 amount = IERC20(token).balanceOf(address(this));
         IERC20(token).safeTransfer(to, amount);
