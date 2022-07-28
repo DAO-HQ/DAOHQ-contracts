@@ -55,7 +55,7 @@ contract DAOHQotc{
   function fulfillOrder(uint256 orderId) external payable{
     Order memory _order = orders[orderId];
     require(!_order.canceled, "Order is cancelled or fulfilled");
-    require(_order.expiry < block.timestamp, "Order is expired");
+    require(_order.expiry > block.timestamp, "Order is expired");
     // Optimistic fulfillment guards reentrancy
     orders[orderId].canceled= true;
     if(_order.fromNative){
