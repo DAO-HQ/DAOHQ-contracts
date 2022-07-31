@@ -165,14 +165,14 @@ contract("DAOHQotc", function (/* accounts */) {
     const amount = web3.utils.toWei("1", 'ether');
 
     const price = web3.utils.toWei("5", 'ether');
-
+    const order_id = 7654
 
     await con.initiateOrder(
       tok.address,
       amount,
       price,
       1, //1hr
-      order_id2,
+      order_id,
       true,
       {from: accounts[1], value: amount}
       )
@@ -181,7 +181,7 @@ contract("DAOHQotc", function (/* accounts */) {
     
     try{
       await tok.approve(con.address, price, {from: accounts[0]});
-      await con.fulfillOrder(order_id2, {from: accounts[0]});
+      await con.fulfillOrder(order_id, {from: accounts[0]});
       assert.isTrue(false)
     }catch{
       const con_user_report_bal = web3.utils.toBN(await con.getBalance(accounts[1], "0x0000000000000000000000000000000000000000"));
@@ -192,21 +192,21 @@ contract("DAOHQotc", function (/* accounts */) {
   it("Should cancel Order and collect ETH", async function(){
     const con = await DAOHQotc.deployed();
     const accounts = await web3.eth.getAccounts()
-
+    const order_id = 7654
     const init_con_bal = web3.utils.toBN(await web3.eth.getBalance(con.address));
     const init_eth_bal1 = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
     console.log(init_eth_bal1)
     const amount = web3.utils.toWei("1", 'ether');
-    await con.cancelWithdrawOrder(order_id2, {from: accounts[1]});
+    await con.cancelWithdrawOrder(order_id, {from: accounts[1]});
 
     const fin_con_bal = web3.utils.toBN(await web3.eth.getBalance(con.address));
     const fin_eth_bal1 = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
     const con_report_bal = web3.utils.toBN(await con.getBalance(accounts[1], "0x0000000000000000000000000000000000000000"));
-    const res = await con.viewOrder(order_id2);
+    const res = await con.viewOrder(order_id);
 
     assert.equal(fin_con_bal + con_report_bal, 0);
     assert.isTrue(fin_eth_bal1 > init_eth_bal1);
-    assert.isTrue(!res[6]);
+    assert.isTrue(res[6]);
   });
 
   it("Should support multi order at different prices", async function(){
@@ -262,4 +262,44 @@ contract("DAOHQotc", function (/* accounts */) {
     assert.equal(bal_fin - bal_init, parseInt(amount2) + parseInt(amount1))
 
     });
+  
+  it("Should block duplicate orderIds and allow withdrawl", async function(){
+    const con = await DAOHQotc.deployed();
+    const tok = await token.deployed();
+    const accounts = await web3.eth.getAccounts()
+    const order1 =7357
+    const price = web3.utils.toWei("5", 'ether');
+
+    const amount = web3.utils.toWei("1", 'ether');
+    await con.initiateOrder(
+      tok.address,
+      amount,
+      price,
+      3500,
+      order1,
+      true,
+      {from: accounts[1], value: amount}
+    );
+
+    try{
+      //another contract tries to hijack order and lock user 1's funds
+      await con.initiateOrder(
+        tok.address,
+        amount,
+        price,
+        3500,
+        order1,
+        true,
+        {from: accounts[0], value: amount}
+      );
+      assert.isTrue(false);
+    }catch{
+      assert.isTrue(true)
+    }
+    const init_eth_bal1 = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
+    await con.cancelWithdrawOrder(order1, {from: accounts[1]});
+    const fin_eth_bal1 = web3.utils.toBN(await web3.eth.getBalance(accounts[1]));
+    assert.isTrue(fin_eth_bal1 > init_eth_bal1);
+
+  });
 });

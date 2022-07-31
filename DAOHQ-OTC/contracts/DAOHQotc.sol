@@ -2,12 +2,8 @@
 pragma solidity >=0.4.22 <0.9.0;
 
 interface IERC20{
-
   function transfer(address to, uint256 amount) external returns (bool);
-
   function transferFrom(address from, address to, uint256 amount) external returns (bool);
-
-  function approve(address spender, uint256 amount) external returns (bool);
 }
 
 contract DAOHQotc{
@@ -35,6 +31,7 @@ contract DAOHQotc{
     uint256 expireTime,
     uint256 orderId,
     bool _fromNative) external payable{
+    require(orders[orderId].owner == address(0), "Order already exists");
     if(_fromNative){
       require(msg.value == _amount, "Insufficient amount of token transferred");
       balances[msg.sender][address(0)] += msg.value;
