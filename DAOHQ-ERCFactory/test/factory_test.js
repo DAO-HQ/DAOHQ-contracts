@@ -25,7 +25,7 @@ contract("DAOHQERC20Factory", function (accounts) {
   it("should deploy token with details, collect fee", async function(){
     const factory = await DAOHQERC20Factory.deployed();
 
-    await factory.createToken(name, symbol, initSupply, true, true, {from: accounts[1]});
+    await factory.createToken(name, symbol, accounts[1], initSupply, true, true, {from: accounts[1]});
     tokAddress = await factory.tokenDeployments(accounts[1], 0);
 
     const tok = await Token.at(tokAddress);
@@ -71,7 +71,7 @@ contract("DAOHQERC20Factory", function (accounts) {
   it("Test Config of mint=true, burn=false", async function(){
     const factory = await DAOHQERC20Factory.deployed();
 
-    await factory.createToken(name, symbol, initSupply, true, false, {from: accounts[2]});
+    await factory.createToken(name, symbol, accounts[2], initSupply, true, false, {from: accounts[2]});
     const tokAddr = await factory.tokenDeployments(accounts[2], 0);
     const tok = await Token.at(tokAddr);
     await tok.mint(accounts[1], BN(1e18), {from: accounts[2]});
@@ -95,7 +95,7 @@ contract("DAOHQERC20Factory", function (accounts) {
   it("Test Config of mint=false, burn=true", async function(){
     const factory = await DAOHQERC20Factory.deployed();
 
-    await factory.createToken(name, symbol, initSupply, false, true, {from: accounts[3]});
+    await factory.createToken(name, symbol, accounts[3], initSupply, false, true, {from: accounts[3]});
     const tokAddr = await factory.tokenDeployments(accounts[3], 0);
     const tok = await Token.at(tokAddr);
     try{
@@ -123,8 +123,8 @@ contract("DAOHQERC20Factory", function (accounts) {
   it("Test Config of mint=false, burn=false", async function(){
     const factory = await DAOHQERC20Factory.deployed();
 
-    await factory.createToken(name, symbol, initSupply, false, false, {from: accounts[4]})
-    const tokAddr = await factory.tokenDeployments(accounts[3], 0);
+    await factory.createToken(name, symbol, accounts[4], initSupply, false, false, {from: accounts[4]})
+    const tokAddr = await factory.tokenDeployments(accounts[4], 0);
     const tok = await Token.at(tokAddr);
     try{
       await tok.mint(accounts[1], BN(1e18), {from: accounts[4]});
@@ -152,7 +152,7 @@ contract("DAOHQERC20Factory", function (accounts) {
     const newFee = BN(5000)
     await factory.changeFee(newFee);
 
-    await factory.createToken(name, symbol, initSupply, true, true, {from: accounts[1]});
+    await factory.createToken(name, symbol, accounts[1], initSupply, true, true, {from: accounts[1]});
     const tokAddr = await factory.tokenDeployments(accounts[1], 1);
 
     const tok = await Token.at(tokAddr);
@@ -165,6 +165,75 @@ contract("DAOHQERC20Factory", function (accounts) {
     }catch{
       assert.isTrue(true);
     }
+  });
+
+  it("Can support different vault and owner", async function(){
+    const factory = await DAOHQERC20Factory.deployed();
+
+    await factory.createToken(name, symbol, accounts[6], initSupply, true, true, {from: accounts[5]});
+    const tokAddr = await factory.tokenDeployments(accounts[5], 0);
+
+    const tok = await Token.at(tokAddr);
+
+    const ownerBal = await tok.balanceOf(accounts[5]);
+    const vaultBal = await tok.balanceOf(accounts[6]);
+    assert.equal(ownerBal, 0);
+    assert.equal(BN(vaultBal).toString(), initSupply.toString());
+
+    try{
+      await tok.transferOwnership(accounts[6], {from: accounts[6]});
+      assert.isTrue(false)
+    }catch{
+      assert.isTrue(true)
+    }
+  });
+
+  it("Can support multi-mint & ownership changes", async function(){
+    
+    const factory = await DAOHQERC20Factory.deployed();
+
+    const tokAddr = await factory.tokenDeployments(accounts[5], 0);
+
+    const tok = await Token.at(tokAddr);
+
+    await tok.mint(accounts[5], BN(1e18), {from: accounts[6]});
+    const bal1 = await tok.balanceOf(accounts[5])
+    assert.equal(BN(bal1).toString(), BN(1e18).toString())
+
+    await tok.mint(accounts[4], BN(1e18), {from: accounts[5]});
+    const bal2 = await tok.balanceOf(accounts[4])
+    assert.equal(BN(bal2).toString(), BN(1e18).toString());
+
+    // test auto add
+    await tok.transferOwnership(accounts[7], {from: accounts[5]});
+    await tok.mint(accounts[3], BN(1e18), {from: accounts[7]});
+    const bal3 = await tok.balanceOf(accounts[3])
+    assert.equal(BN(bal3).toString(), BN(1e18).toString());
+
+    //test manual add
+    await tok.updateMintAuthority(accounts[8], true, {from: accounts[7]})
+
+    await tok.mint(accounts[2], BN(1e18), {from: accounts[8]});
+    const bal4 = await tok.balanceOf(accounts[2])
+    assert.equal(BN(bal4).toString(), BN(1e18).toString());
+    const vault = await tok.vault();
+    assert.equal(vault, accounts[6])
+
+    try{
+      //test autoremoved owner permission
+      await tok.mint(accounts[4], BN(1e18), {from: accounts[5]});
+      assert.equal(false)
+    }catch{
+      try{
+        // test manual removal 
+        await tok.updateMintAuthority(accounts[8], false, {from: accounts[7]});
+        await tok.mint(accounts[2], BN(1e18), {from: accounts[8]});
+        assert.isTrue(false);
+      }catch{
+        assert.isTrue(true);
+      }
+    }
+
   });
 
   it("Test Withdrawl of tokens", async function(){

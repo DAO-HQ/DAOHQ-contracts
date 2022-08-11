@@ -17,11 +17,12 @@ contract DAOHQERC20Factory{
     function createToken(
         string memory name,
         string memory symbol,
+        address vault,
         uint256 initSupply,
         bool isMintable,
         bool isBurnable) external{
         DAOHQERC20 token = new DAOHQERC20(name, symbol,
-            initSupply, fee, msg.sender, isMintable, isBurnable);
+            initSupply, fee, vault, isMintable, isBurnable);
 
         tokenDeployments[msg.sender].push(address(token));
         token.transferOwnership(msg.sender);
