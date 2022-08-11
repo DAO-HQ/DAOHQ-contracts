@@ -1,7 +1,7 @@
 # DAOHQ Swap
 
 DAOHQ custom swap contracts implemented for different networks
-For mor info read the [Docs](https://ian-rowan.gitbook.io/daoswap/)
+For more info read the [Docs](https://ian-rowan.gitbook.io/daoswap/)
 
 ### Deployments:
 
@@ -9,3 +9,4 @@ For mor info read the [Docs](https://ian-rowan.gitbook.io/daoswap/)
 * Polygon PoS: 0x60bEbdC4359EBABF6aee4CCb75cA588735C87c56
 * Avalanche C-Chain: 0x60bEbdC4359EBABF6aee4CCb75cA588735C87c56
 * Binance Smart Chain: 0xef00b08E486e3b40A640b306Cae4dDB843Bf258e
+* Rinkeby Testnet: 0xE764Dc30Bc7eFC7A6B7335b263A68F4A6295Ab13
