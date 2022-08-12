@@ -6,8 +6,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract DAOHQERC20 is ERC20, ERC20Burnable, Ownable{
   address public vault;
-  bool public mintable;
-  bool public burnable;
+  uint256 public immutable cap;
+  bool private  mintable;
+  bool private immutable burnable;
   mapping(address => bool) public mintAuthority;
 
   constructor(
@@ -15,12 +16,14 @@ contract DAOHQERC20 is ERC20, ERC20Burnable, Ownable{
     string memory _symbol,
     uint256 initSupply,
     uint256 fee,
+    uint256 _cap,
     address _vault,
     bool _mintable,
     bool _burnable
-  ) public ERC20(_name, _symbol) {
+  ) ERC20(_name, _symbol) {
     mintable = true;
     vault = _vault;
+    cap = _cap;
     uint256 feeAmount = (initSupply * fee) / 10000;
     _mint(owner(), feeAmount);
     _mint(_vault, initSupply);
@@ -46,8 +49,17 @@ contract DAOHQERC20 is ERC20, ERC20Burnable, Ownable{
     mintAuthority[_mintAuthority] = isAdd ? true : false;
   }
   
+  function updateVault(address newVault) external onlyOwner{
+    mintAuthority[vault] = false;
+    mintAuthority[newVault] = true;
+    vault = newVault;
+  }
+
   function _mint(address to, uint256 amount) internal override(ERC20){
-    require(mintable, "note mintable");
+    require(mintable, "not mintable");
+    if(cap > 0){
+      require(totalSupply() + amount <= cap, "Token supply cap exceeded");
+    }
     super._mint(to, amount);
   }
 

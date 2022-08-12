@@ -25,7 +25,7 @@ contract("DAOHQERC20Factory", function (accounts) {
   it("should deploy token with details, collect fee", async function(){
     const factory = await DAOHQERC20Factory.deployed();
 
-    await factory.createToken(name, symbol, accounts[1], initSupply, true, true, {from: accounts[1]});
+    await factory.createToken(name, symbol, accounts[1], initSupply, 0, true, true, {from: accounts[1]});
     tokAddress = await factory.tokenDeployments(accounts[1], 0);
 
     const tok = await Token.at(tokAddress);
@@ -70,8 +70,7 @@ contract("DAOHQERC20Factory", function (accounts) {
 
   it("Test Config of mint=true, burn=false", async function(){
     const factory = await DAOHQERC20Factory.deployed();
-
-    await factory.createToken(name, symbol, accounts[2], initSupply, true, false, {from: accounts[2]});
+    await factory.createToken(name, symbol, accounts[2], initSupply, 0, true, false, {from: accounts[2]});
     const tokAddr = await factory.tokenDeployments(accounts[2], 0);
     const tok = await Token.at(tokAddr);
     await tok.mint(accounts[1], BN(1e18), {from: accounts[2]});
@@ -95,7 +94,7 @@ contract("DAOHQERC20Factory", function (accounts) {
   it("Test Config of mint=false, burn=true", async function(){
     const factory = await DAOHQERC20Factory.deployed();
 
-    await factory.createToken(name, symbol, accounts[3], initSupply, false, true, {from: accounts[3]});
+    await factory.createToken(name, symbol, accounts[3], initSupply, 0, false, true, {from: accounts[3]});
     const tokAddr = await factory.tokenDeployments(accounts[3], 0);
     const tok = await Token.at(tokAddr);
     try{
@@ -123,7 +122,7 @@ contract("DAOHQERC20Factory", function (accounts) {
   it("Test Config of mint=false, burn=false", async function(){
     const factory = await DAOHQERC20Factory.deployed();
 
-    await factory.createToken(name, symbol, accounts[4], initSupply, false, false, {from: accounts[4]})
+    await factory.createToken(name, symbol, accounts[4], initSupply, 0, false, false, {from: accounts[4]})
     const tokAddr = await factory.tokenDeployments(accounts[4], 0);
     const tok = await Token.at(tokAddr);
     try{
@@ -152,7 +151,7 @@ contract("DAOHQERC20Factory", function (accounts) {
     const newFee = BN(5000)
     await factory.changeFee(newFee);
 
-    await factory.createToken(name, symbol, accounts[1], initSupply, true, true, {from: accounts[1]});
+    await factory.createToken(name, symbol, accounts[1], initSupply, 0, true, true, {from: accounts[1]});
     const tokAddr = await factory.tokenDeployments(accounts[1], 1);
 
     const tok = await Token.at(tokAddr);
@@ -170,7 +169,7 @@ contract("DAOHQERC20Factory", function (accounts) {
   it("Can support different vault and owner", async function(){
     const factory = await DAOHQERC20Factory.deployed();
 
-    await factory.createToken(name, symbol, accounts[6], initSupply, true, true, {from: accounts[5]});
+    await factory.createToken(name, symbol, accounts[6], initSupply, 0, true, true, {from: accounts[5]});
     const tokAddr = await factory.tokenDeployments(accounts[5], 0);
 
     const tok = await Token.at(tokAddr);
@@ -235,6 +234,50 @@ contract("DAOHQERC20Factory", function (accounts) {
     }
 
   });
+
+  it("Vault transfer is correct", async function(){
+    const factory = await DAOHQERC20Factory.deployed();
+
+    const tokAddr = await factory.tokenDeployments(accounts[5], 0);
+
+    const tok = await Token.at(tokAddr);
+    const preVault = accounts[6];
+    const newVault = accounts[1];
+    await tok.updateVault(newVault, {from: accounts[7]});
+    const postVault = await tok.vault();
+    assert.equal(postVault, newVault);
+
+    await tok.mint(newVault, BN(10e18), {from: newVault});
+    try{
+      await tok.mint(preVault, BN(10e18), {from: preVault});
+      assert.isTrue(false);
+    }catch{
+      assert.isTrue(true);
+    }
+
+  })
+
+  it("Cap does work", async function(){
+    const factory = await DAOHQERC20Factory.deployed();
+    await factory.changeFee(fee);
+    //NOTE: Must take fee into account when creating init supply
+    await factory.createToken(name, symbol, accounts[9], initSupply, BN(130e18), true, true, {from: accounts[9]});
+    const tokAddr = await factory.tokenDeployments(accounts[9], 0);
+
+    const tok = await Token.at(tokAddr);
+
+    await tok.mint(accounts[9], BN(15e18), {from: accounts[9]});
+    try{
+      await tok.mint(accounts[9], BN(10e18), {from: accounts[9]});
+      assert.isTrue(false);
+    }catch{
+      await tok.mint(accounts[9], BN(5e18), {from: accounts[9]});
+      const bal = await tok.balanceOf(accounts[9]);
+      assert.equal(BN(bal).toString(), BN(120e18).toString());
+    }
+
+  });
+
 
   it("Test Withdrawl of tokens", async function(){
     const users = [1, 2, 3, 4];
