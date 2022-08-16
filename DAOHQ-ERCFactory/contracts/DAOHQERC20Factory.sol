@@ -2,7 +2,7 @@
 pragma solidity >=0.4.22 <0.9.0;
 //import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./DAOHQERC20.sol";
-
+//TODO: Add richer detail to tokenDeployments + view Function
 contract DAOHQERC20Factory{
     uint256 private fee;
     address public owner;
