@@ -18,4 +18,4 @@ In order to ensure security of our contracts and full understanding of their fun
    1. Another member of DAOHQ should approve the list of unit tests(via descriptions)
    2. Another member of DAOHQ should analyze the contract for sanity checks and security. *It's understood that other members may need a walkthrough. This audit can      occur via a call/meeting
 5. Reviewing member(s) from (3) commit unit test and contract files with an `//APPROVED` comment. 
-4. After findings from (3) has been addressed, contract can be deployed to mainnet(s)
+4. After findings from (3) has been addressed and files are approvedd contract may be deployed to mainnet(s)
