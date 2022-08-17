@@ -2,12 +2,12 @@
 pragma solidity >=0.4.22 <0.9.0;
 //import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./DAOHQERC20.sol";
-//TODO: Add richer detail to tokenDeployments + view Function
+
 contract DAOHQERC20Factory{
-    uint256 private fee;
+    uint256 public fee;
     address public owner;
 
-    mapping(address => address[]) public tokenDeployments;
+    mapping(address => DAOHQERC20[]) public tokenDeployments;
 
     constructor(uint256 initFee){
        fee = initFee;
@@ -21,12 +21,13 @@ contract DAOHQERC20Factory{
         uint256 initSupply,
         uint256 cap,
         bool isMintable,
-        bool isBurnable) external{
+        bool isBurnable) external returns(address){
         DAOHQERC20 token = new DAOHQERC20(name, symbol,
             initSupply, fee, cap, vault, isMintable, isBurnable);
 
-        tokenDeployments[msg.sender].push(address(token));
+        tokenDeployments[msg.sender].push(token);
         token.transferOwnership(msg.sender);
+        return address(token);
     }
 
     modifier onlyOwner(){
@@ -45,6 +46,19 @@ contract DAOHQERC20Factory{
 
     function changeFee(uint256 newFee) external onlyOwner{
         fee = newFee;
+    }
+
+    function getTokenDetails(address creator, string memory name) external view
+    returns(string memory, address, uint256, uint256, address) {
+        DAOHQERC20[] memory tokens = tokenDeployments[creator];
+        DAOHQERC20 token;
+        for(uint i; i < tokens.length; i++){
+            if(keccak256(abi.encodePacked(tokens[i].name())) == keccak256(abi.encodePacked(name))){
+                token = tokens[i];
+                break;
+            }
+        } 
+        return (token.symbol(), token.vault(), token.totalSupply(), token.cap(), address(token));
     }
 
 }

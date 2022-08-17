@@ -36,6 +36,15 @@ contract("DAOHQERC20Factory", function (accounts) {
     assert.equal(factoryBal.toString(), initSupply.mul(fee).div(BN(10000)).toString())
   });
 
+  it("Token details should be correct", async function(){
+    const factory = await DAOHQERC20Factory.deployed();
+    const data = await factory.getTokenDetails(accounts[1], name);
+    assert.equal(data[0], symbol);
+    assert.equal(data[1], accounts[1]);
+    assert.equal(data[3], 0);
+    assert.equal(data[4], tokAddress);
+  });
+
   it("Deployer should be only token owner and have permission", async function(){
     const tok = await Token.at(tokAddress);
     assert.equal(await tok.owner(), accounts[1]);
