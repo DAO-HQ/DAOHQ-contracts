@@ -13,11 +13,14 @@ interface IUniswapV2Router02{
     function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline)
     external
     returns (uint[] memory amounts);
+
+    function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
 }
+
 
 contract IssuanceManager is DaoHqRouter{
 
-    uint256 startPrice; //in wei
+    uint256 startPrice; //in wei ETH
     IToken public indexToken;
     //comment out for prod
     IUniswapV2Router02 UniswapRouter = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
@@ -84,7 +87,7 @@ contract IssuanceManager is DaoHqRouter{
         (address[] memory components, uint256 cumulativeShare) = _getComponentsShare();
         //Buy each component
         for(uint i = 0; i<components.length; i++){
-            _executeswap(components[i], cumulativeShare, msg.value/*, paths[i]*/);
+            _executeswap(components[i], cumulativeShare, ethVal/*, paths[i]*/);
         }
     }
 
@@ -97,23 +100,27 @@ contract IssuanceManager is DaoHqRouter{
         cumulativeShare = indexToken.getCumulativeShare();
     }
 
-    function issue(uint qty, address to /*, bytes32[][] calldata paths*/) external payable {
-        //TODO: update valuation strategy
-        require(msg.value * qty >= startPrice * qty, "Not enough eth");
+    function issueForExactETH(uint minQty, address to /*, bytes32[][] calldata paths*/) external payable {
+        uint256 preSupply = indexToken.totalSupply();
+        uint256 preValue = valueSet();
+        uint256 outputTokens = (msg.value * preSupply) / preValue;
+        require(outputTokens >= minQty, "Insuffiecient return amount");
 
         _swapEthForAll(msg.value);
-
-        indexToken.mint(to, qty);
+        require((preValue + (preSupply + outputTokens))/preSupply == valueSet(), "set misbalanced");
+        indexToken.mint(to, outputTokens);
     }
 
     function redeem(uint qty, address to /*, bytes32[][] calldata paths*/) external {
         require(indexToken.balanceOf(to) >= qty, "User does not have sufficeint balance");
-        
-        (address[] memory components, uint256 cumulativeShare) = _getComponentsShare();
+        uint expectedOut = (qty * valueSet()) / indexToken.totalSupply();
+        (address[] memory components, ) = _getComponentsShare();
         uint256 funds = 0;
         for(uint i = 0; i<components.length; i++){
             funds += _executeSwaptoETH(components[i], qty /*, paths[i]*/);
         }
+        require(expectedOut == funds, "incorrect redemption amount");
+
         indexToken.burn(to, qty);
         (bool sent, ) = payable(to).call{value: funds}("");
         require(sent, "Failed to Transfer");
@@ -134,10 +141,20 @@ contract IssuanceManager is DaoHqRouter{
         uint postBalance = address(this).balance;
         _swapEthForAll(postBalance - preBalance);
     }
+    
+    function valueSet() public view returns (uint256 wethValue){
+        wethValue = 0;
+        address[] memory components = indexToken.getComponents();
+        for (uint i = 0; i < components.length; i++){
+            uint256 bal = IERC20(components[i]).balanceOf(address(indexToken));
+            address[] memory path = new address[](2);
+            path[0] = components[i];
+            path[1] = WETH;
+            wethValue += UniswapRouter.getAmountsOut(bal, path)[1];
+        }
+    }
 
     receive() external payable {}
 
     fallback() external payable{}
-    //rebalance function sell all potitions where new share < old to == new share size. Buy all positions where new > old share w/ funds from prior
-    //Add receive
 }
