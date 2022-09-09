@@ -4,14 +4,17 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IToken.sol";
 
 contract IndexToken is ERC20, IToken{
-
+    
+    address feeWallet;
+    //TODO: add update function?
+    uint256 private constant transferFeed = 30;
     uint256 private cumulativeShare;
     address[] private components;
     mapping(address => uint256) private share;
     mapping(address => bool) public managers;
     mapping(address => bool) public nodes;
 
-    constructor(string memory _name, string memory _symbol,
+    constructor(string memory _name, string memory _symbol, address _feeWallet,
                 address[] memory _components,
                 uint256[] memory _shares
                 ) 
@@ -23,6 +26,7 @@ contract IndexToken is ERC20, IToken{
                         share[_components[i]] = _shares[i];
                     }
                     managers[msg.sender] = true;
+                    feeWallet = _feeWallet;
                 }
 
     modifier onlyNode(){
@@ -48,7 +52,7 @@ contract IndexToken is ERC20, IToken{
     }   
 
     function editComponent(address _component, uint256 _newShare) override external onlyManager{
-        (uint256 i, bool exists) = indexOf(components, _component);
+        (uint256 i, bool exists) = _indexOf(components, _component);
         if(!exists){
             _addComponent(_component, _newShare);
         }else if (_newShare > 0){
@@ -86,7 +90,32 @@ contract IndexToken is ERC20, IToken{
         return cumulativeShare;
     }
 
-    function indexOf(address[] memory A, address a) internal pure returns (uint256, bool) {
+    function _transferFeeAmount(uint256 amount) private pure returns(uint256){
+        return (amount * transferFeed)/10000;
+    }
+
+    function transfer(address to, uint256 amount)
+     public virtual override(ERC20,IERC20) returns (bool) {
+        address owner = _msgSender();
+        uint256 feeAmount = _transferFeeAmount(amount);
+        //TODO: create custom internal ERC _transfer to save gas
+        _transfer(owner, feeWallet, feeAmount);
+        _transfer(owner, to, amount-feeAmount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount)
+     public virtual override(ERC20, IERC20) returns (bool) {
+        address spender = _msgSender();
+        _spendAllowance(from, spender, amount);
+        uint256 feeAmount = _transferFeeAmount(amount);
+        //TODO: same as transfer
+        _transfer(from, feeWallet, feeAmount);
+        _transfer(from, to, amount - feeAmount);
+        return true;
+    }
+
+    function _indexOf(address[] memory A, address a) internal pure returns (uint256, bool) {
         uint256 length = A.length;
         for (uint256 i = 0; i < length; i++) {
             if (A[i] == a) {
@@ -95,11 +124,5 @@ contract IndexToken is ERC20, IToken{
         }
         //return Out of bounds index if not existing
         return (length, false);
-    }
-
-    function contains(address[] memory A, address a) internal pure returns (bool) {
-        (, bool isIn) = indexOf(A, a);
-        return isIn;
-    }
-
+    }s
 }
