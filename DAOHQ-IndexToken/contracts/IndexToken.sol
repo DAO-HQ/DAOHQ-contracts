@@ -124,5 +124,5 @@ contract IndexToken is ERC20, IToken{
         }
         //return Out of bounds index if not existing
         return (length, false);
-    }s
+    }
 }
