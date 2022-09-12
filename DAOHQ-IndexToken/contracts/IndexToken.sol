@@ -8,6 +8,7 @@ contract IndexToken is ERC20, IToken{
     address feeWallet;
     //TODO: add update function?
     uint256 private constant transferFeed = 30;
+    uint256 public immutable basePrice;
     uint256 private cumulativeShare;
     address[] private components;
     mapping(address => uint256) private share;
@@ -15,6 +16,7 @@ contract IndexToken is ERC20, IToken{
     mapping(address => bool) public nodes;
 
     constructor(string memory _name, string memory _symbol, address _feeWallet,
+                uint256 startPrice,
                 address[] memory _components,
                 uint256[] memory _shares
                 ) 
@@ -27,6 +29,7 @@ contract IndexToken is ERC20, IToken{
                     }
                     managers[msg.sender] = true;
                     feeWallet = _feeWallet;
+                    basePrice = startPrice;
                 }
 
     modifier onlyNode(){

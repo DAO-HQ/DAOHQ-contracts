@@ -1,7 +1,7 @@
 pragma solidity ^0.8.0;
 import "../IToken.sol";
 
-contract managementFeeNode {
+contract ManagementFeeNode {
 
     uint256 managementFee; // Percent of Set accruing to manager annually (1% = 100, 100% = 100000)
     address manager;

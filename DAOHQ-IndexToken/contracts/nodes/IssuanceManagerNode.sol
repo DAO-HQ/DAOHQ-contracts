@@ -86,12 +86,16 @@ contract IssuanceManager is DaoHqRouter{
 
     function issueForExactETH(IToken indexToken, uint minQty, address to /*, bytes32[][] calldata paths*/) external payable {
         uint256 preSupply = indexToken.totalSupply();
+        uint256 outputTokens;
+        if(preSupply == 0){
+            outputToken = (msg.value * 10 ** 18) / indexToken.basePrice();
+        }
         uint256 preValue = valueSet(indexToken);
-        uint256 outputTokens = (msg.value * preSupply) / preValue;
+        outputTokens = (msg.value * preSupply) / preValue;
         require(outputTokens >= minQty, "Insuffiecient return amount");
 
         _swapEthForAll(indexToken, msg.value);
-        require((preValue + (preSupply + outputTokens))/preSupply == valueSet(indexToken), "set misbalanced");
+        require((preValue + (preSupply + outputTokens))/preSupply == valueSet(indexToken) || preSupply == 0, "set misbalanced");
         indexToken.mint(to, outputTokens);
     }
 
