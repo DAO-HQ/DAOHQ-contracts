@@ -2,6 +2,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IToken.sol";
+import { IUniswapV2Pair } from "./nodes/IssuanceManagerNode.sol";
 
 contract IndexToken is ERC20, IToken{
     
@@ -9,7 +10,7 @@ contract IndexToken is ERC20, IToken{
     //TODO: add update function?
     uint256 private constant transferFeed = 30;
     uint256 public immutable basePrice;
-    uint256 private cumulativeShare;
+    uint256 private cumulativeShare =0;
     address[] private components;
     mapping(address => uint256) private share;
     mapping(address => bool) public managers;

@@ -17,5 +17,7 @@ interface IToken is IERC20{
 
     function getCumulativeShare() external view returns(uint256);
 
-    function basePrice() external view returns(uint256)
+    function basePrice() external view returns(uint256);
+
+    function addNode(address _node) external;
 }
