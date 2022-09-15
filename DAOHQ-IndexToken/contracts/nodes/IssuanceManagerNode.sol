@@ -73,12 +73,11 @@ contract IssuanceManager{
 
     function _executeSwaptoETH(address pool, uint256 indexQty, IToken indexToken) private returns(uint256 amountOut){
         address token = _getPoolToken(pool);
-        //TODO: Subtract pending fees
         uint256 amountIn = IERC20(token).balanceOf(address(indexToken));
         // 0 index qty signals an exit
         if(indexQty > 0){
             // % of supply/ownership of index * balance of given token 
-            amountIn = ((indexQty * amountIn) / indexToken.totalSupply() / 10 ** 6) * 10 ** 6;
+            amountIn = (indexQty * amountIn) / indexToken.totalSupply();
         }
 
         indexToken.approveComponent(token, address(this), amountIn);
@@ -87,8 +86,8 @@ contract IssuanceManager{
         amountOut = _rawPoolSwap(pool, amountIn, address(this), false);
     }
 
-    function _swapEthForAll(IToken indexToken, uint256 ethVal) private {
-        (address[] memory components, uint256 cumulativeShare) = _getComponentsShare(indexToken);
+    function _swapEthForAll(IToken indexToken, uint256 ethVal, address[] memory components) private {
+        uint256 cumulativeShare = indexToken.getCumulativeShare();
         WETH.deposit{value: msg.value}();
         //Buy each component
         for(uint i = 0; i<components.length; i++){
@@ -96,44 +95,47 @@ contract IssuanceManager{
         }
     }
 
+    function _valueSet(IToken indexToken, address[] memory components) private view returns (uint256 wethValue){
+        wethValue = 0;
+        for (uint i = 0; i < components.length; i++){
+            uint256 bal = IERC20(_getPoolToken(components[i])).balanceOf(address(indexToken));
+            wethValue += _getAmountOut(components[i], bal, false);
+        }
+    }
+
     function _exit(address component, IToken indexToken) private returns (uint256 amountOut){
         return _executeSwaptoETH(component, 0, indexToken);
     }
 
-    function _getComponentsShare(IToken indexToken) private view returns(address[] memory components, uint256 cumulativeShare){
-        components = indexToken.getComponents();
-        cumulativeShare = indexToken.getCumulativeShare();
+    function seedNewSet(IToken indexToken, uint minQty, address to) external payable {
+        require(indexToken.totalSupply() == 0, "Token Already seeded");
+        uint256 outputTokens = (msg.value * 10 ** 18) / indexToken.basePrice();
+        require(outputTokens >= minQty, "Insuffiecient return amount");
+        _swapEthForAll(indexToken, msg.value, indexToken.getComponents());
+        indexToken.mint(to, (outputTokens / PRECISION) * PRECISION);
     }
 
-    function issueForExactETH(IToken indexToken, uint minQty, address to /*, bytes32[][] calldata paths*/) external payable {
+    function issueForExactETH(IToken indexToken, uint minQty, address to ) external payable {
         uint256 preSupply = indexToken.totalSupply();
-        uint256 outputTokens;
-        uint256 preValue;
-        if(preSupply == 0){
-            outputTokens = (msg.value * 10 ** 18) / indexToken.basePrice();
-        }else{
-            preValue = valueSet(indexToken);
-            //outputTokens = (msg.value * preSupply) / preValue;
-        }
-        _swapEthForAll(indexToken, msg.value);
-        outputTokens = preSupply > 0 ?
-         ((((preSupply * valueSet(indexToken)) / preValue) - preSupply) / PRECISION) * PRECISION 
-         : (outputTokens / PRECISION) * PRECISION;
+        address[] memory components = indexToken.getComponents();
+        uint256 preValue = _valueSet(indexToken, components);
+        _swapEthForAll(indexToken, msg.value, components);
+        uint256 outputTokens = ((((preSupply * _valueSet(indexToken, components)) / preValue) - preSupply) / PRECISION) * PRECISION; 
         require(outputTokens >= minQty, "Insuffiecient return amount");
-        //require(preSupply == 0 || (preValue * (preSupply + outputTokens))/preSupply == valueSet(indexToken) , "set misbalanced");
+
         indexToken.mint(to, outputTokens);
     }
 
-    function redeem(IToken indexToken, uint qty, address to /*, bytes32[][] calldata paths*/) external {
+    function redeem(IToken indexToken, uint qty, address to) external {
         require(indexToken.balanceOf(to) >= qty, "User does not have sufficeint balance");
-        uint expectedOut = (qty * valueSet(indexToken)) / indexToken.totalSupply();
+        
         address[] memory components = indexToken.getComponents();
         uint256 funds = 0;
         for(uint i = 0; i<components.length; i++){
             funds += _executeSwaptoETH(components[i], qty, indexToken /*, paths[i]*/);
         }
         //require(expectedOut == funds, "incorrect redemption amount");
-        emit Redemtion(WETH.balanceOf(address(this)), funds, expectedOut);
+        //emit Redemtion(WETH.balanceOf(address(this)), funds, expectedOut);
         WETH.withdraw(funds);
         indexToken.burn(to, qty);
         (bool sent, ) = payable(to).call{value: funds}("");
@@ -157,21 +159,12 @@ contract IssuanceManager{
                 IERC20(component).balanceOf(address(this)) == 0, "Token not exited properly");
             }
         }
-
         uint postBalance = address(this).balance;
-        _swapEthForAll(indexToken, postBalance - preBalance);
+        _swapEthForAll(indexToken, postBalance - preBalance, indexToken.getComponents());
     }
 
-    
-    function valueSet(IToken indexToken) public view returns (uint256 wethValue){
-        wethValue = 0;
-        address[] memory components = indexToken.getComponents();
-        //uint256[] memory pendingFees = feeNode.getFeesPending(indexToken);
-        for (uint i = 0; i < components.length; i++){
-            uint256 bal = IERC20(_getPoolToken(components[i])).balanceOf(address(indexToken));
-            //bal -= pendingFees[i];
-            wethValue += _getAmountOut(components[i], bal, false);
-        }
+    function getIndexValue(IToken indexToken) external view returns(uint256){
+        return _valueSet(indexToken, indexToken.getComponents());
     }
 
     receive() external payable {}

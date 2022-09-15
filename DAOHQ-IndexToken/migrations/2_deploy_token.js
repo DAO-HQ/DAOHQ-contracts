@@ -8,10 +8,8 @@ module.exports = function (deployer, network, accounts) {
     const pools = ["0xd3d2E2692501A5c9Ca623199D38826e513033a17", "0xE12af1218b4e9272e9628D7c7Dc6354D137D024e", "0xb011EEaab8bF0c6DE75510128dA95498E4b7e67F",
                     "0x454F11D58E27858926d7a4ECE8bfEA2c33E97B13", "0x11b1f53204d03E5529F09EB3091939e4Fd8c9CF3", "0xFD0A40Bc83C5faE4203DEc7e5929B446b07d1C76",
                     "0x26aAd2da94C59524ac0D93F6D6Cbf9071d7086f2", "0xCc3d1EceF1F9fD25599dbeA2755019DC09db3c54", "0x43AE24960e5534731Fc831386c07755A2dc33D47",
-                "0xCFfDdeD873554F362Ac02f8Fb1f02E5ada10516f", "0xDf4A9E4D3374373902Fb197FE0652a0508F5499d"]
-    const shares = [1000, 1000, 1000,
-                    1000, 1000, 1000,
-                    1000, 1000, 1000, 1000, 1000];
+"0xCFfDdeD873554F362Ac02f8Fb1f02E5ada10516f", "0x05767d9EF41dC40689678fFca0608878fb3dE906", "0xA70d458A4d9Bc0e6571565faee18a48dA5c0D593"]
+    const shares = [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000];
     console.log(accounts[0]);
     deployer.deploy(IndexToken, "TestIndex", "TIDX", accounts[0], web3.utils.toBN("57080000000000000"), pools, shares);
 };
