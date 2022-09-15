@@ -26,14 +26,12 @@ interface WETH9{
 
 contract IssuanceManager{
 
-    ImanagementFeeNode feeNode;
     uint256 private constant PRECISION = 10 ** 12;
     WETH9 private constant WETH = WETH9(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     event ErrorSwap(address token, uint256 value, uint256 share, uint256 cumulativeShare);
     event Redemtion(uint256 WETHBal, uint256 fundsReceived, uint256 expectedOut);
 
-    constructor(address feeManager) {
-        feeNode = ImanagementFeeNode(feeManager);
+    constructor() {
     }
 
     function _getAmountOut(address pool, uint256 amountIn, bool fromWETH) private view returns(uint256){
