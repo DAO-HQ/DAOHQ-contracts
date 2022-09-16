@@ -3,7 +3,7 @@ const FeeNode = artifacts.require("ManagementFeeNode");
 const IssuanceManager = artifacts.require("IssuanceManager");
 
 module.exports = async function (deployer) {
-    await deployer.deploy(IssuanceManager, FeeNode.address);
+    await deployer.deploy(IssuanceManager);
     const instance = await IssuanceManager.deployed();
     const indInst = await IndexToken.deployed();
     await indInst.addNode(instance.address);

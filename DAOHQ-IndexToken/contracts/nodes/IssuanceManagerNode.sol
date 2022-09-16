@@ -11,10 +11,6 @@ interface IUniswapV2Pair {
     function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
 }
 
-interface ImanagementFeeNode{
-    function getFeesPending(IToken indexToken) external view returns(uint256[] memory);
-}
-
 interface WETH9{
     function deposit() external payable;
     function withdraw(uint wad) external;
@@ -30,6 +26,7 @@ contract IssuanceManager{
     WETH9 private constant WETH = WETH9(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     event ErrorSwap(address token, uint256 value, uint256 share, uint256 cumulativeShare);
     event Redemtion(uint256 WETHBal, uint256 fundsReceived, uint256 expectedOut);
+    event valueData(uint preval, uint postval, uint totalSupply);
 
     constructor() {
     }
@@ -120,7 +117,7 @@ contract IssuanceManager{
         _swapEthForAll(indexToken, msg.value, components);
         uint256 outputTokens = ((((preSupply * _valueSet(indexToken, components)) / preValue) - preSupply) / PRECISION) * PRECISION; 
         require(outputTokens >= minQty, "Insuffiecient return amount");
-
+        emit valueData(preValue, _valueSet(indexToken, components), preSupply);
         indexToken.mint(to, outputTokens);
     }
 
@@ -147,7 +144,7 @@ contract IssuanceManager{
     }
 
     function rebalanceExitedFunds(IToken indexToken, address[] memory exitedPositions) external {
-        uint preBalance = address(this).balance;
+        uint preBalance = WETH.balanceOf(address(this));
         {
             for(uint i = 0; i < exitedPositions.length; i++){
                 address component = exitedPositions[i];
@@ -157,8 +154,24 @@ contract IssuanceManager{
                 IERC20(component).balanceOf(address(this)) == 0, "Token not exited properly");
             }
         }
-        uint postBalance = address(this).balance;
+        uint postBalance = WETH.balanceOf(address(this));
         _swapEthForAll(indexToken, postBalance - preBalance, indexToken.getComponents());
+    }
+    //Value + new value * 997?
+    function getAmountOut(IToken indexToken, uint256 ethIn) external view returns(uint256){
+        address[] memory components = indexToken.getComponents(); 
+        uint256 cumulativeShare = indexToken.getCumulativeShare();
+        uint256 postValue = 0;
+        for(uint i = 0; i < components.length; i++){
+            uint256 bal = IERC20(_getPoolToken(components[i])).balanceOf(address(indexToken)) + 
+                _getAmountOut(components[i],
+                 (ethIn * indexToken.getShare(components[i])) / cumulativeShare,
+                 true);
+            
+            postValue += _getAmountOut(components[i], bal, false);
+        }
+        uint256 preSupply = indexToken.totalSupply();
+        return ((((preSupply * postValue) / _valueSet(indexToken, components)) - preSupply) / PRECISION) * PRECISION; 
     }
 
     function getIndexValue(IToken indexToken) external view returns(uint256){
