@@ -143,35 +143,22 @@ contract IssuanceManager{
         return balance;
     }
 
-    function rebalanceExitedFunds(IToken indexToken, address[] memory exitedPositions) external {
+    function rebalanceExitedFunds(IToken indexToken, address[] memory exitedPositions, uint256[] memory replacementIndex) external {
+        //sells out of exited positions and buys selected index(typically the token that replaced it)
         uint preBalance = WETH.balanceOf(address(this));
-        {
-            for(uint i = 0; i < exitedPositions.length; i++){
-                address component = exitedPositions[i];
-                require(indexToken.getShare(component) == 0, "position not exited");
-                _exit(component, indexToken);
-                require(IERC20(component).balanceOf(address(indexToken)) == 0 &&
-                IERC20(component).balanceOf(address(this)) == 0, "Token not exited properly");
-            }
+        address[] memory components = indexToken.getComponents();
+        for(uint i = 0; i < exitedPositions.length; i++){
+            address component = exitedPositions[i];
+            require(indexToken.getShare(component) == 0, "position not exited");
+            uint256 amountWOut= _exit(component, indexToken);
+            IERC20 token = IERC20(_getPoolToken(component));
+            require(token.balanceOf(address(indexToken)) == 0 &&
+            token.balanceOf(address(this)) == 0, "Token not exited properly");
+            _rawPoolSwap(components[replacementIndex[i]], amountWOut, address(indexToken), true);
         }
-        uint postBalance = WETH.balanceOf(address(this));
-        _swapEthForAll(indexToken, postBalance - preBalance, indexToken.getComponents());
-    }
-    //Value + new value * 997?
-    function getAmountOut(IToken indexToken, uint256 ethIn) external view returns(uint256){
-        address[] memory components = indexToken.getComponents(); 
-        uint256 cumulativeShare = indexToken.getCumulativeShare();
-        uint256 postValue = 0;
-        for(uint i = 0; i < components.length; i++){
-            uint256 bal = IERC20(_getPoolToken(components[i])).balanceOf(address(indexToken)) + 
-                _getAmountOut(components[i],
-                 (ethIn * indexToken.getShare(components[i])) / cumulativeShare,
-                 true);
-            
-            postValue += _getAmountOut(components[i], bal, false);
+        if(WETH.balanceOf(address(this)) - preBalance > 0){
+            _swapEthForAll(indexToken, WETH.balanceOf(address(this)) - preBalance, indexToken.getComponents());
         }
-        uint256 preSupply = indexToken.totalSupply();
-        return ((((preSupply * postValue) / _valueSet(indexToken, components)) - preSupply) / PRECISION) * PRECISION; 
     }
 
     function getIndexValue(IToken indexToken) external view returns(uint256){

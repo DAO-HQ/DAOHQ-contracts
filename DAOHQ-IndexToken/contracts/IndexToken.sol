@@ -54,7 +54,7 @@ contract IndexToken is ERC20, IToken{
     function approveComponent(address _token, address _spender, uint256 _amount) override external onlyNode {
         IERC20(_token).approve(_spender, _amount);
     }   
-
+    
     function editComponent(address _component, uint256 _newShare) override external onlyManager{
         (uint256 i, bool exists) = _indexOf(components, _component);
         if(!exists){
@@ -78,6 +78,19 @@ contract IndexToken is ERC20, IToken{
         share[_component] = 0;
     }
 
+    function replaceComponent(address _componentAdd, address _componentRm, uint256 newShare) external onlyManager{
+        (uint256 i, bool exists) = _indexOf(components, _componentRm);
+        require(exists, "component does not exist");
+        components[i] = _componentAdd;
+        uint256 oldShare = share[_componentRm];
+        if(newShare >= oldShare){
+            cumulativeShare += newShare - oldShare;
+        }else{
+            cumulativeShare -= oldShare - newShare;
+        }
+        share[_componentAdd] = newShare;
+        share[_componentRm] = 0;
+    }
     function addNode(address _node) external onlyManager{
         nodes[_node] = true;
     }
