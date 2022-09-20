@@ -77,7 +77,7 @@ contract("management_fee_node", function (accounts) {
     const expectedFee = BN(5000).mul(BN(await indexInst.totalSupply())).div(BN(10000));
     //console.log(expectedFee.toString())
 
-    assert.equal(postFeeCollect.toString(), expectedFee.toString());
+    assert.equal(postFeeCollect.div(BN(1e13)).toString(), expectedFee.div(BN(1e13)).toString());
   });
 
   it("Restricted to Manager", async function(){

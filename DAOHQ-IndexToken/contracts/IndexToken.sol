@@ -2,7 +2,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IToken.sol";
-import { IUniswapV2Pair } from "./nodes/IssuanceManagerNode.sol";
 
 contract IndexToken is ERC20, IToken{
     
@@ -54,26 +53,34 @@ contract IndexToken is ERC20, IToken{
     function approveComponent(address _token, address _spender, uint256 _amount) override external onlyNode {
         IERC20(_token).approve(_spender, _amount);
     }   
-    
+
     function editComponent(address _component, uint256 _newShare) override external onlyManager{
         (uint256 i, bool exists) = _indexOf(components, _component);
         if(!exists){
             _addComponent(_component, _newShare);
-        }else if (_newShare > 0){
-            share[_component] = _newShare;
         }else{
-            _removeComponent(_component, i);
+            require(_newShare > 0);
+            _updateCumulativeShare(_newShare, _component);
+            share[_component] = _newShare;
         }
     }
-    //TODO: add replace function
+
+    function _updateCumulativeShare(uint256 newShare, address component)private {
+        uint256 oldShare = share[component];
+        if(newShare >= oldShare){
+            cumulativeShare += newShare - oldShare;
+        }else{
+            cumulativeShare -= oldShare - newShare;
+        }
+    }
+
     function _addComponent(address _component, uint256 shares) private {
         components.push(_component);
         share[_component] = shares;
         cumulativeShare += shares;
     }
 
-    function _removeComponent(address _component, uint256 index) private {
-        delete components[index];
+    function _removeComponent(address _component) private {
         cumulativeShare -= share[_component];
         share[_component] = 0;
     }
@@ -82,17 +89,17 @@ contract IndexToken is ERC20, IToken{
         (uint256 i, bool exists) = _indexOf(components, _componentRm);
         require(exists, "component does not exist");
         components[i] = _componentAdd;
-        uint256 oldShare = share[_componentRm];
-        if(newShare >= oldShare){
-            cumulativeShare += newShare - oldShare;
-        }else{
-            cumulativeShare -= oldShare - newShare;
-        }
+        _updateCumulativeShare(newShare, _componentRm);
         share[_componentAdd] = newShare;
         share[_componentRm] = 0;
     }
+
     function addNode(address _node) external onlyManager{
         nodes[_node] = true;
+    }
+
+    function removeNode(address _node) external onlyManager{
+        nodes[_node] = false;
     }
 
     function getComponents() override external view returns(address[] memory){
