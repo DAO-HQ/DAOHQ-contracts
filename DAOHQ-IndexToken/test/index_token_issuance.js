@@ -6,7 +6,7 @@ const IssuanceManager = artifacts.require("IssuanceManager");
  * Ethereum client
  * See docs: https://www.trufflesuite.com/docs/truffle/testing/writing-tests-in-javascript
  */
-contract("IndexToken", function (accounts) {
+contract("IssuanceManagerNode", function (accounts) {
   
   it("should deploy", async function () {
     await IndexToken.deployed();
