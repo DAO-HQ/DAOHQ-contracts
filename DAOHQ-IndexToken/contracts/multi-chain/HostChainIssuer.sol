@@ -68,7 +68,7 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
     //2. When funds received on l2, backend calls this
     function notifyBridgeCompletion(uint256 toIssue, uint256 chainId) external{
         require(msg.sender == manager, "restricted");
-        _mint(indexToken, chainId,toIssue, "");
+        _mint(indexToken, chainId, toIssue, "");
     }
 
     //Redemption
