@@ -4,41 +4,54 @@
 
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-
-interface IERC20{
-    function transferFrom(address from, address to, uint256 amount) external;
-    function approve(address spender, uint256 amount) external; 
-}
+import "../exchange/MinimalSwap.sol";
+import { WETH9 } from "../exchange/MinimalSwap.sol";
 
 interface ITokenBridge{
+    function completeTransfer(bytes memory encodedVm) external;
     function transferTokens(
-    address token,
-    uint256 amount,
-    uint16 recipientChain,
-    bytes32 recipient,
-    uint256 arbiterFee,
-    uint32 nonce
+        address token,
+        uint256 amount,
+        uint16 recipientChain,
+        bytes32 recipient,
+        uint256 arbiterFee,
+        uint32 nonce
     ) external payable returns (uint64 sequence);
+
+    function wrapAndTransferETH(
+        uint16 recipientChain,
+        bytes32 recipient,
+        uint256 arbiterFee,
+        uint32 nonce
+    ) external payable returns (uint64 sequence);
+
+    function completeTransferAndUnwrapETH(bytes memory encodedVm) external ;
 }
 
-contract HostChainIssuer is ERC1155 {
+contract HostChainIssuer is ERC1155, MinimalSwap {
 
     uint32 nonce = 0;
     address indexToken;
     address issuanceNode;
     address manager;
+    address wPool;
     ITokenBridge bridge = ITokenBridge(0x3ee18B2214AFF97000D974cf647E7C347E8fa585);
-    IERC20 WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+
     mapping(uint16 => address) sideChainManagers;
     
     event Deposit(uint256 amtWETH, uint16 chainId, uint64 seq);
 
     event Withdraw(uint256 amt, uint256 chainId, address toUser);
 
-    constructor(string memory uri, address onChainIndex, address _manager)ERC1155(uri){
+    constructor(string memory uri,
+     address onChainIndex,
+     address _manager,
+     address _pool, address _WETH)ERC1155(uri)MinimalSwap(_WETH){
         indexToken = onChainIndex;
         manager = _manager;
-    }   
+        wPool = _pool;
+    }
+
     //Issuance
     //potential est amount of returned tokens and mint. Cleanup at full tx completion
     //1. index Calls this
@@ -65,6 +78,17 @@ contract HostChainIssuer is ERC1155 {
         require(balanceOf(msg.sender, id) > amtToken);
         _burn(msg.sender, id, amtToken);
         emit Withdraw(amtToken, id, toUser);
-    } 
+    }
+
+    //2. complete tx
+    function completeWithdrawl(bytes memory encodedVm, address to) external {
+        bridge.completeTransfer(encodedVm);
+        address poolTok = _getPoolToken(wPool);
+        _rawPoolSwap(wPool, WETH9(poolTok).balanceOf(address(this)), address(this), false);
+        uint256 preBal = address(this).balance;
+        WETH.withdraw(WETH.balanceOf(address(this)));
+        (bool sent, ) = payable(to).call{value: address(this).balance - preBal}("");
+        require(sent, "Failed to Transfer");
+    }  
 
 }

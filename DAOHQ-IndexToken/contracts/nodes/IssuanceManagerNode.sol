@@ -2,56 +2,17 @@
 pragma solidity ^0.8.0;
 //import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../IToken.sol";
+import "../exchange/MinimalSwap.sol";
+import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 
-interface IUniswapV2Pair { 
-    function factory() external view returns (address);
-    function token0() external view returns (address);
-    function token1() external view returns (address);
-    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
-    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
-}
-
-interface WETH9{
-    function deposit() external payable;
-    function withdraw(uint wad) external;
-    function balanceOf(address account) external returns(uint256);
-    function approve(address to, uint256 amount) external;
-    function transferFrom(address from, address to, uint256 wad) external;
-    function transfer(address to, uint256 amount) external;
-}
-
-contract IssuanceManager{
+contract IssuanceManager is MinimalSwap{
 
     uint256 private constant PRECISION = 10 ** 12;
-    WETH9 private constant WETH = WETH9(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     event ErrorSwap(address token, uint256 value, uint256 share, uint256 cumulativeShare);
     event Redemtion(uint256 WETHBal, uint256 fundsReceived, uint256 expectedOut);
     event valueData(uint preval, uint postval, uint totalSupply);
 
-    constructor() {
-    }
-
-    function _getAmountOut(address pool, uint256 amountIn, bool fromWETH) private view returns(uint256){
-        IUniswapV2Pair pair = IUniswapV2Pair(pool);
-        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
-        (reserve0, reserve1) = pair.token0() == address(WETH) 
-        ? fromWETH ? (reserve0, reserve1) : (reserve1, reserve0)
-        : fromWETH ? (reserve1, reserve0) : (reserve0, reserve1);
-        uint256 aInFee = amountIn * 997;
-        uint256 numerator =  aInFee * reserve1;
-        uint256 denominator = (reserve0 * 1000) + aInFee;
-        return numerator/denominator;
-    }
-
-    function _rawPoolSwap(address poolAddr, uint256 amountIn, address to, bool fromWETH) private returns(uint256) {
-        uint256 amountOut = _getAmountOut(poolAddr, amountIn, fromWETH);
-        IUniswapV2Pair pool = IUniswapV2Pair(poolAddr);
-        (address token0, address token1) = (pool.token0(), pool.token1());
-        WETH9 tokenIn = fromWETH ? WETH : token0 == address(WETH) ? WETH9(token1) : WETH9(token0);
-        (uint256 amount0out, uint256 amount1out) = address(tokenIn) == token0 ? (uint256(0), amountOut) : (amountOut, uint256(0));
-        tokenIn.transfer(poolAddr, amountIn);
-        pool.swap(amount0out, amount1out, to, new bytes(0));
-        return amountOut;
+    constructor(address _WETH) MinimalSwap(_WETH){
     }
 
     function _executeswap(address component, uint256 cumulativeShare, uint256 msgVal, IToken indexToken) private returns(uint256 amountOut) {
@@ -59,11 +20,6 @@ contract IssuanceManager{
         uint256 value = (msgVal * share) / cumulativeShare;
 
         return _rawPoolSwap(component, value, address(indexToken), true);
-    }
-
-    function _getPoolToken(address pool) private view returns(address token){
-        (address token0, address token1) = (IUniswapV2Pair(pool).token0(), IUniswapV2Pair(pool).token0());
-        token = token0 == address(WETH) ? token0 : token1;
     }
 
     function _executeSwaptoETH(address pool, uint256 indexQty, IToken indexToken) private returns(uint256 amountOut){
