@@ -19,6 +19,7 @@ const bridges = {
     2: "0x98f3c9e6E3fAce36bAAd05FE09d375Ef1464288B",
     5: "0x7A4B5a56256163F07b2C80A7cA55aBE66c4ec4d7"
 }
+
 async function monitorHostChainIssuance(){
     while(true){
         hcContract.events.Deposit()

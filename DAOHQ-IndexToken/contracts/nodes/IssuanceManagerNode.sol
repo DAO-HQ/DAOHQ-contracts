@@ -5,6 +5,12 @@ import "../IToken.sol";
 import "../exchange/MinimalSwap.sol";
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 
+interface IHostChainManager{
+    function depositWETH(uint256 amtWETH, uint16 chainId) external returns(uint64);
+    function withdrawFunds(uint256 amtToken, uint256 id, address toUser) external;
+    function balanceOf(address account, uint256 id) external view returns (uint256);
+}
+
 contract IssuanceManager is MinimalSwap{
 
     uint256 private constant PRECISION = 10 ** 12;
@@ -37,6 +43,14 @@ contract IssuanceManager is MinimalSwap{
         amountOut = _rawPoolSwap(pool, amountIn, address(this), false);
     }
 
+    function _executeExternalSwaptoETH(IToken indexToken, IToken.externalPosition memory position, uint256 qty, address to) private {
+        uint256 amountIn = IHostChainManager(position.externalContract).balanceOf(address(indexToken), uint256(position.id));
+        if(qty > 0){
+            amountIn = (qty * amountIn) / indexToken.totalSupply();
+        }
+        IHostChainManager(position.externalContract).withdrawFunds(amountIn, uint256(position.id), to);
+    }
+    
     function _swapEthForAll(IToken indexToken, uint256 ethVal, address[] memory components) private {
         uint256 cumulativeShare = indexToken.getCumulativeShare();
         WETH.deposit{value: msg.value}();
@@ -44,6 +58,20 @@ contract IssuanceManager is MinimalSwap{
         for(uint i = 0; i<components.length; i++){
             _executeswap(components[i], cumulativeShare, ethVal, indexToken/*, paths[i]*/);
         }
+        IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
+        //TODO: Alot of batching here will save gas
+        for(uint i =0; i < _externals.length; i++){
+            IToken.externalPosition memory position = _externals[i];
+            uint256 share = _getExternalShare(indexToken,  position.externalContract, position.id);
+            uint256 value = (ethVal * share) / cumulativeShare;
+            WETH.approve(position.externalContract, value);
+            IHostChainManager(position.externalContract).depositWETH(value, position.id);
+        }
+    }
+
+    function _getExternalShare(IToken indexToken, address contractAddress, uint256 id) private view returns (uint256){
+        address uid = address(uint160(uint256(keccak256(abi.encode(contractAddress, id)))));
+        return indexToken.getShare(uid);
     }
 
     function _valueSet(IToken indexToken, address[] memory components) private view returns (uint256 wethValue){
@@ -84,6 +112,12 @@ contract IssuanceManager is MinimalSwap{
         uint256 funds = 0;
         for(uint i = 0; i<components.length; i++){
             funds += _executeSwaptoETH(components[i], qty, indexToken /*, paths[i]*/);
+        }
+
+        IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
+        //TODO: Alot of batching here will save gas
+        for(uint i =0; i < _externals.length; i++){
+            _executeExternalSwaptoETH(indexToken, _externals[i], qty, to);
         }
         //require(expectedOut == funds, "incorrect redemption amount");
         //emit Redemtion(WETH.balanceOf(address(this)), funds, expectedOut);

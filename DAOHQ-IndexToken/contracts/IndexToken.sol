@@ -4,13 +4,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IToken.sol";
 
 contract IndexToken is ERC20, IToken{
-    
+
     address feeWallet;
     //TODO: add update function?
     uint256 private constant transferFeed = 30;
     uint256 public immutable basePrice;
-    uint256 private cumulativeShare =0;
+    uint256 private cumulativeShare = 0;
     address[] private components;
+    externalPosition[] private externalComponents;
+    //external address = hash(externalcontract, id)
     mapping(address => uint256) private share;
     mapping(address => bool) public managers;
     mapping(address => bool) public nodes;
@@ -18,14 +20,22 @@ contract IndexToken is ERC20, IToken{
     constructor(string memory _name, string memory _symbol, address _feeWallet,
                 uint256 startPrice,
                 address[] memory _components,
+                bytes[] memory _externalComponents,
                 uint256[] memory _shares
                 ) 
                 ERC20(_name, _symbol)
                 {
                     components = _components;
-                    for (uint i = 0; i < _components.length; i++ ){
+                    for (uint i = 0; i < _shares.length; i++ ){
+                        if(i < _components.length){
+                            share[_components[i]] = _shares[i];
+                        }else{
+                            externalPosition memory ext;
+                            (ext.externalContract, ext.id) = abi.decode(_externalComponents[i], (address, uint16));
+                            externalComponents.push(ext);
+                            share[address(uint160(uint256(keccak256(_externalComponents[i]))))] = _shares[i];
+                        }
                         cumulativeShare += _shares[i];
-                        share[_components[i]] = _shares[i];
                     }
                     managers[msg.sender] = true;
                     feeWallet = _feeWallet;
@@ -104,6 +114,10 @@ contract IndexToken is ERC20, IToken{
 
     function getComponents() override external view returns(address[] memory){
         return components;
+    }
+
+    function getExternalComponents() override external view returns(externalPosition[] memory){
+        return externalComponents;
     }
 
     function getShare(address _component) override external view returns(uint){

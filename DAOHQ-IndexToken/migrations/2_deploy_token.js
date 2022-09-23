@@ -11,5 +11,5 @@ module.exports = function (deployer, network, accounts) {
 "0xCFfDdeD873554F362Ac02f8Fb1f02E5ada10516f", "0x05767d9EF41dC40689678fFca0608878fb3dE906", "0xA70d458A4d9Bc0e6571565faee18a48dA5c0D593"*/]
     const shares = [1000, 1000, 1000, 1000, 1000,/* 1000, 1000, 1000, 1000, 1000, 1000, 1000*/];
     console.log(accounts[0]);
-    deployer.deploy(IndexToken, "TestIndex", "TIDX", accounts[0], web3.utils.toBN("57080000000000000"), pools, shares);
+    deployer.deploy(IndexToken, "TestIndex", "TIDX", accounts[0], web3.utils.toBN("57080000000000000"), pools, [],shares);
 };

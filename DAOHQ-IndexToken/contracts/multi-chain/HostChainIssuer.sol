@@ -31,7 +31,6 @@ interface ITokenBridge{
 contract HostChainIssuer is ERC1155, MinimalSwap {
 
     uint32 nonce = 0;
-    address indexToken;
     address issuanceNode;
     address manager;
     address wPool;
@@ -44,10 +43,8 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
     event Withdraw(uint256 amt, uint256 chainId, address toUser);
 
     constructor(string memory uri,
-     address onChainIndex,
      address _manager,
      address _pool, address _WETH)ERC1155(uri)MinimalSwap(_WETH){
-        indexToken = onChainIndex;
         manager = _manager;
         wPool = _pool;
     }
@@ -66,7 +63,7 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
     }
 
     //2. When funds received on l2, backend calls this
-    function notifyBridgeCompletion(uint256 toIssue, uint256 chainId) external{
+    function notifyBridgeCompletion(uint256 toIssue, uint256 chainId, address indexToken) external{
         require(msg.sender == manager, "restricted");
         _mint(indexToken, chainId, toIssue, "");
     }
