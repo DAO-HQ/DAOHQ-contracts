@@ -7,8 +7,16 @@ import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 
 interface IHostChainManager{
     function depositWETH(uint256 amtWETH, uint16 chainId) external returns(uint64);
-    function withdrawFunds(uint256 amtToken, uint256 id, address toUser) external;
+    function withdrawFunds(uint256 amtToken, uint256 id, address toUser, address issuanceNode) external;
     function balanceOf(address account, uint256 id) external view returns (uint256);
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 id,
+        uint256 amount,
+        bytes calldata data
+    ) external;
+
 }
 
 contract IssuanceManager is MinimalSwap{
@@ -48,7 +56,8 @@ contract IssuanceManager is MinimalSwap{
         if(qty > 0){
             amountIn = (qty * amountIn) / indexToken.totalSupply();
         }
-        IHostChainManager(position.externalContract).withdrawFunds(amountIn, uint256(position.id), to);
+        IHostChainManager(position.externalContract).safeTransferFrom(address(indexToken), address(this), uint256(position.id), amountIn, "");
+        IHostChainManager(position.externalContract).withdrawFunds(amountIn, uint256(position.id), to, address(this));
     }
     
     function _swapEthForAll(IToken indexToken, uint256 ethVal, address[] memory components) private {

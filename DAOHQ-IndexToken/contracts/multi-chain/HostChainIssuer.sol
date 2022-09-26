@@ -31,10 +31,9 @@ interface ITokenBridge{
 contract HostChainIssuer is ERC1155, MinimalSwap {
 
     uint32 nonce = 0;
-    address issuanceNode;
     address manager;
     address wPool;
-    ITokenBridge bridge = ITokenBridge(0x3ee18B2214AFF97000D974cf647E7C347E8fa585);
+    ITokenBridge bridge = ITokenBridge(0x932930cAA4068e47C786c60370358161569BD3D8);
 
     mapping(uint16 => address) sideChainManagers;
     
@@ -53,25 +52,26 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
     //potential est amount of returned tokens and mint. Cleanup at full tx completion
     //1. index Calls this
     function depositWETH(uint256 amtWETH, uint16 chainId) external returns(uint64){
-       WETH.transferFrom(msg.sender,address(this), amtWETH);
+       WETH.transferFrom(msg.sender, address(this), amtWETH);
        WETH.approve(address(bridge), amtWETH);
        nonce += 1;
        uint64 seq = bridge.transferTokens(address(WETH),
-        amtWETH, chainId, bytes32(uint256(uint160(sideChainManagers[chainId])) << 96), 0, nonce);
+        amtWETH, chainId, bytes32(uint256(uint160(sideChainManagers[chainId]))), 0, nonce);
        emit Deposit(amtWETH, chainId, seq);
        return seq;
     }
 
     //2. When funds received on l2, backend calls this
-    function notifyBridgeCompletion(uint256 toIssue, uint256 chainId, address indexToken) external{
+    function notifyBridgeCompletion(uint256 toIssue, uint256 chainId, address indexToken, address issuanceNode) external{
         require(msg.sender == manager, "restricted");
+        _setApprovalForAll(indexToken, issuanceNode, true);
         _mint(indexToken, chainId, toIssue, "");
     }
 
     //Redemption
     //1. Index submits 1155 w/ id. Triggers withdrawl
-    function withdrawFunds(uint256 amtToken, uint256 id, address toUser) external{
-        require(msg.sender == issuanceNode);
+    function withdrawFunds(uint256 amtToken, uint256 id, address toUser, address issuanceNode) external{
+        //require(msg.sender == issuanceNode);
         require(balanceOf(msg.sender, id) > amtToken);
         _burn(msg.sender, id, amtToken);
         emit Withdraw(amtToken, id, toUser);
@@ -86,6 +86,10 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
         WETH.withdraw(WETH.balanceOf(address(this)));
         (bool sent, ) = payable(to).call{value: address(this).balance - preBal}("");
         require(sent, "Failed to Transfer");
+    }
+
+    function addSideChain(uint16 chainId, address scManager) external{
+        sideChainManagers[chainId] = scManager;
     }  
 
 }

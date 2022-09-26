@@ -1,0 +1,22 @@
+const IndexToken = artifacts.require("IndexToken");
+const FeeNode = artifacts.require("ManagementFeeNode");
+const IssuanceManager = artifacts.require("IssuanceManager");
+
+module.exports = async function (deployer, network, accounts) {
+    let WETH;
+    if(network == "eth_dev"){
+        WETH = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+    }else if(network == "poly_dev"){
+        WETH = "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270"
+    }
+
+    await deployer.deploy(IssuanceManager, WETH);
+    const instance = await IssuanceManager.deployed();
+    const indInst = await IndexToken.deployed();
+    await indInst.addNode(instance.address);
+    
+    if(network != "eth_dev"){
+        await instance
+        .seedNewSet(indInst.address, 100000000, accounts[2], {from: accounts[2], value: web3.utils.toBN("570800000000000000")});
+    }
+};

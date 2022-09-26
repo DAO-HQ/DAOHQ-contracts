@@ -1,9 +1,10 @@
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "./IToken.sol";
 
-contract IndexToken is ERC20, IToken{
+contract IndexToken is ERC20, ERC1155Holder, IToken{
 
     address feeWallet;
     //TODO: add update function?
@@ -31,9 +32,9 @@ contract IndexToken is ERC20, IToken{
                             share[_components[i]] = _shares[i];
                         }else{
                             externalPosition memory ext;
-                            (ext.externalContract, ext.id) = abi.decode(_externalComponents[i], (address, uint16));
+                            (ext.externalContract, ext.id) = abi.decode(_externalComponents[_components.length - i], (address, uint16));
                             externalComponents.push(ext);
-                            share[address(uint160(uint256(keccak256(_externalComponents[i]))))] = _shares[i];
+                            share[address(uint160(uint256(keccak256(_externalComponents[_components.length - i]))))] = _shares[i];
                         }
                         cumulativeShare += _shares[i];
                     }
