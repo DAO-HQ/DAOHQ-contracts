@@ -3,11 +3,12 @@ pragma solidity ^0.8.0;
 //import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../IToken.sol";
 import "../exchange/MinimalSwap.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 
 interface IHostChainManager{
     function depositWETH(uint256 amtWETH, uint16 chainId) external returns(uint64);
-    function withdrawFunds(uint256 amtToken, uint256 id, address toUser, address issuanceNode) external;
+    function withdrawFunds(uint256 amtToken, uint256 id, address toUser) external;
     function balanceOf(address account, uint256 id) external view returns (uint256);
     function safeTransferFrom(
         address from,
@@ -19,7 +20,7 @@ interface IHostChainManager{
 
 }
 
-contract IssuanceManager is MinimalSwap{
+contract IssuanceManager is MinimalSwap, ERC1155Holder{
 
     uint256 private constant PRECISION = 10 ** 12;
     event ErrorSwap(address token, uint256 value, uint256 share, uint256 cumulativeShare);
@@ -57,7 +58,7 @@ contract IssuanceManager is MinimalSwap{
             amountIn = (qty * amountIn) / indexToken.totalSupply();
         }
         IHostChainManager(position.externalContract).safeTransferFrom(address(indexToken), address(this), uint256(position.id), amountIn, "");
-        IHostChainManager(position.externalContract).withdrawFunds(amountIn, uint256(position.id), to, address(this));
+        IHostChainManager(position.externalContract).withdrawFunds(amountIn, uint256(position.id), to);
     }
     
     function _swapEthForAll(IToken indexToken, uint256 ethVal, address[] memory components) private {

@@ -19,8 +19,9 @@ module.exports = async function (deployer, network, accounts) {
         const hcInst = await HostChainIssuer.deployed();
         //Add sidechain address after deploy" NOTE: Deploy sidechain first
         external = [web3.eth.abi.encodeParameters(['address', 'uint16'], [hcInst.address, 137])];
-    }else{
-         pools = ["0x3c986748414A812e455DCd5418246B8fdEd5C369", "0x0554059D42E26f35CC958581C71FdfD92405d02f"]
+        //external = []
+     }else{
+         pools = ["0xEEf611894CeaE652979C9D0DaE1dEb597790C6eE", "0x604229c960e5CACF2aaEAc8Be68Ac07BA9dF81c3"]
          shares = [1000, 1000]
          external = [];
     }

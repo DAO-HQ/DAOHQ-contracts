@@ -8,14 +8,14 @@ const web3Poly = new Web3(new Web3.providers.WebsocketProvider("ws://127.0.0.1:9
 
 var fs = require('fs');
 //one for each chain
-const hostChainIssuer = "0xfAE76dE99d9676F5BEdd6ED47bDa901f118E55C6";
-const indexToken = "0x5F41b196668E8a8c49780Da87A21c71ad56d52d3";
-const IssuanceNode = "0xE1B32011ed09CA392A5BDbC732a00633F522bB69";
+const hostChainIssuer = "0xDC863BA2308F953a6AA815F2C6aBD6c7112b4a8F";
+const indexToken = "0x70A1003781987a373faf37A95B322BFFfE30AC37";
+const IssuanceNode = "0xaAC480E41d53435E7A638660C08115B3B69fa92d";
 
 const hostChainAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/HostChainIssuer.json")).abi;
-const sideChainManager = "0x7016eCEdd4BDA8F78b5A0795D961B4463A94bF81";
-const scToken = "0xF5a456c2D639aB41504A25DE1cD4Df0fE492Ab79";
-const scIss = "0xE5cdd0a83B9e07082B4b95D82C3DcCdadDCf2c55";
+const sideChainManager = "0x30F377d8566593941a99566d3E6fac3B1c90E71a";
+const scToken = "0xd2497a2f64640D94E17Ea1577940672DEcEAF55e";
+const scIss = "0x9a60BbedBEE78f19660B225c227817e4c1e35333";
 const sideChainAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/SideChainManager.json")).abi;
 const hcContract = new web3ETH.eth.Contract(hostChainAbi, hostChainIssuer);
 const scContract = new web3Poly.eth.Contract(sideChainAbi, sideChainManager);
@@ -23,7 +23,7 @@ const scContract = new web3Poly.eth.Contract(sideChainAbi, sideChainManager);
 const bridges = {
     //ETH
     1: "0x98f3c9e6E3fAce36bAAd05FE09d375Ef1464288B",
-    137: "0x3787D11795C533807f13d14f9984E45A38D73887"
+    137: "0x0Aa3174De081C9A93CEA8805B7B792cF26aE3a15"
 }
 
 async function monitorHostChainIssuance(){
@@ -81,8 +81,9 @@ async function monitorSideChainRedemption(){
     })
 }
 
+//Issuance flow
 hcContract.events.Deposit({
-    fromBlock: 15525312
+    fromBlock: 'latest'
 }, function(error, event){ if(error){console.log(error);} })
 .on('connected',  function(subscriptionId){
     console.log(subscriptionId);
@@ -99,10 +100,10 @@ hcContract.events.Deposit({
             console.log(error);
         })
         .then(function (response) {
-        console.log(response.data)
+        //console.log(response.data)
         const bytes = response.data.msg;
         web3Poly.eth.getAccounts(function(error, result){
-            scContract.methods.completeBridge(bytes, scToken, scIss).send({from: result[0]}).then(console.log("funds bridged"));
+            scContract.methods.completeBridge(bytes, scToken, scIss).send({from: result[0], gasLimit: 4000000}).then(console.log("funds bridged"));
         })
     })
     }, 5000)
@@ -114,6 +115,7 @@ scContract.events.Issued()
     console.log(subscriptionId);
 })
 .on('data', function(event){
+    console.log(event.returnValues);
     web3ETH.eth.getAccounts(function(error, result){
         hcContract
         .methods
@@ -124,6 +126,46 @@ scContract.events.Issued()
 })
 
 hcContract.events.Withdraw()
-.on('data', async function(event){
-    console.log(event.returnValues)
+.on('connected',  function(subscriptionId){
+    console.log(subscriptionId);
+})
+.on('data', function(event){
+    console.log(event.returnValues);
+    web3Poly.eth.getAccounts(function(error, result){
+        scContract
+        .methods
+        .redeem(event.returnValues.amt, 1, event.returnValues.toUser, scToken, scIss)
+        .send({from: result[0], gasLimit: 4000000})
+        .then(console.log("Funds withdrawn and bridged"));
+    })
 });
+
+scContract.events.Redemption()
+.on('connected',  function(subscriptionId){
+    console.log(subscriptionId);
+})
+.on('data', function(event){
+    console.log(event.returnValues);
+    setTimeout(function(){
+        axios.get('http://localhost:3000/api', {
+            params: {
+                id: event.returnValues.chainId,
+                seq: event.returnValues.seq
+            }
+            })
+            .catch(function(error){
+                console.log(error);
+            })
+            .then(function (response) {
+            //console.log(response.data)
+            const bytes = response.data.msg;
+            web3ETH.eth.getAccounts(function(error, result){
+                hcContract
+                .methods
+                .completeWithdrawl(bytes, event.returnValues.to)
+                .send({from: result[0]})
+                .then(console.log("funds bridged and paid"));
+            })
+        })
+        }, 5000)
+})

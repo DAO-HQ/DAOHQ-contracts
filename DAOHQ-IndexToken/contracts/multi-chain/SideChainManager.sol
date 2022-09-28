@@ -21,7 +21,7 @@ contract SideChainManager is MinimalSwap{
     uint32 private nonce = 0;
     event Issued(uint256 amtIssue, uint256 amtSpent);
 
-    event Redemption(uint256 amtRedeemed, uint64 seq, address to);
+    event Redemption(uint256 amtRedeemed, uint64 seq, address to, uint16 chainId);
 
     constructor(address _bridge,
      address _wPool,
@@ -51,12 +51,20 @@ contract SideChainManager is MinimalSwap{
         IIssuanceManager(issueNode).redeem(indexToken, amtRedeem, address(this));
         
         WETH.deposit{value: address(this).balance - preBal}();
-        _rawPoolSwap(wPool, address(this).balance - preBal, address(this), true);
-        address poolTok = _getPoolToken(wPool);
+        //TODO: Uncomment prod
+        //_rawPoolSwap(wPool, address(this).balance - preBal, address(this), true);
+        //address poolTok = _getPoolToken(wPool);
         nonce += 1;
-        uint64 seq = bridge.transferTokens(poolTok, WETH9(poolTok).balanceOf(address(this)), chainId, bytes32(uint256(uint160(indexToken)) << 96), 0, nonce);
-        emit Redemption(amtRedeem, seq, to);
+        //Which token will we transfer?
+        uint256 w_bal = WETH.balanceOf(address(this));
+        WETH.approve(address(bridge), w_bal);
+        uint64 seq = bridge.transferTokens(address(WETH), w_bal, chainId, bytes32(uint256(uint160(to))), 0, nonce);
+        emit Redemption(amtRedeem, seq, to, chainId);
         return seq;
     }
+
+    receive() external payable {}
+
+    fallback() external payable{}
 
 }

@@ -41,11 +41,19 @@ module.exports = {
     // tab if you use this network and you must also set the `host`, `port` and `network_id`
     // options below to some value.
     //
-    // development: {
-    //  host: "127.0.0.1",     // Localhost (default: none)
-    //  port: 8545,            // Standard Ethereum port (default: none)
-    //  network_id: "*",       // Any network (default: none)
-    // },
+    api_keys: {
+      etherscan: "MRZDW63HMKB9VDMNF93YSA2NNYAGXF25BA"
+    },
+    eth_dev: {
+      host: "127.0.0.1",     // Localhost (default: none)
+      port: 7545,            // Standard Ethereum port (default: none)
+      network_id: "5777",       // Any network (default: none)
+     },
+     poly_dev: {
+      host: "127.0.0.1",     // Localhost (default: none)
+      port: 9545,            // Standard Ethereum port (default: none)
+      network_id: "5777",
+     }
     // Another network with more advanced options...
     // advanced: {
     // port: 8777,             // Custom port
@@ -92,7 +100,9 @@ module.exports = {
       // }
     }
   },
-
+  etherscan: {
+    apiKey: "MRZDW63HMKB9VDMNF93YSA2NNYAGXF25BA" //replace this with your API key if you have one
+  }
   // Truffle DB is currently disabled by default; to enable it, change enabled:
   // false to enabled: true. The default storage location can also be
   // overridden by specifying the adapter settings, as shown in the commented code below.

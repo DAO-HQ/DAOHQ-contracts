@@ -49,7 +49,7 @@ contract MinimalSwap{
     }
 
     function _getPoolToken(address pool) internal view returns(address token){
-        (address token0, address token1) = (IUniswapV2Pair(pool).token0(), IUniswapV2Pair(pool).token0());
-        token = token0 == address(WETH) ? token0 : token1;
+        (address token0, address token1) = (IUniswapV2Pair(pool).token0(), IUniswapV2Pair(pool).token1());
+        token = token0 == address(WETH) ? token1 : token0;
     }
 }

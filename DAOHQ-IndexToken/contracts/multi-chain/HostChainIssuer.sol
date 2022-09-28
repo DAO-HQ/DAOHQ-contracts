@@ -70,9 +70,8 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
 
     //Redemption
     //1. Index submits 1155 w/ id. Triggers withdrawl
-    function withdrawFunds(uint256 amtToken, uint256 id, address toUser, address issuanceNode) external{
-        //require(msg.sender == issuanceNode);
-        require(balanceOf(msg.sender, id) > amtToken);
+    function withdrawFunds(uint256 amtToken, uint256 id, address toUser) external{
+        require(balanceOf(msg.sender, id) >= amtToken, "Insufficient balance of ERC1155");
         _burn(msg.sender, id, amtToken);
         emit Withdraw(amtToken, id, toUser);
     }
@@ -80,8 +79,9 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
     //2. complete tx
     function completeWithdrawl(bytes memory encodedVm, address to) external {
         bridge.completeTransfer(encodedVm);
-        address poolTok = _getPoolToken(wPool);
-        _rawPoolSwap(wPool, WETH9(poolTok).balanceOf(address(this)), address(this), false);
+        //TODO: uncomment for prod
+        //address poolTok = _getPoolToken(wPool);
+        //_rawPoolSwap(wPool, WETH9(poolTok).balanceOf(address(this)), address(this), false);
         uint256 preBal = address(this).balance;
         WETH.withdraw(WETH.balanceOf(address(this)));
         (bool sent, ) = payable(to).call{value: address(this).balance - preBal}("");
@@ -92,4 +92,7 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
         sideChainManagers[chainId] = scManager;
     }  
 
+    receive() external payable {}
+
+    fallback() external payable{}
 }
