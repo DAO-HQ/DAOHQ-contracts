@@ -48,6 +48,11 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
         wPool = _pool;
     }
 
+    modifier onlyManager(){
+        require(msg.sender == manager);
+        _;
+    }
+
     //Issuance
     //potential est amount of returned tokens and mint. Cleanup at full tx completion
     //1. index Calls this
@@ -62,8 +67,7 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
     }
 
     //2. When funds received on l2, backend calls this
-    function notifyBridgeCompletion(uint256 toIssue, uint256 chainId, address indexToken, address issuanceNode) external{
-        require(msg.sender == manager, "restricted");
+    function notifyBridgeCompletion(uint256 toIssue, uint256 chainId, address indexToken, address issuanceNode) external onlyManager{
         _setApprovalForAll(indexToken, issuanceNode, true);
         _mint(indexToken, chainId, toIssue, "");
     }
@@ -88,10 +92,18 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
         require(sent, "Failed to Transfer");
     }
 
-    function addSideChain(uint16 chainId, address scManager) external{
+    function addSideChain(uint16 chainId, address scManager) external onlyManager{
         sideChainManagers[chainId] = scManager;
-    }  
+    }
 
+    function editSwapPool(address newPool) external onlyManager{
+        wPool = newPool;
+    }
+
+    function updateBridge(address newBridge) external onlyManager{
+        bridge = ITokenBridge(newBridge);
+    }  
+    
     receive() external payable {}
 
     fallback() external payable{}

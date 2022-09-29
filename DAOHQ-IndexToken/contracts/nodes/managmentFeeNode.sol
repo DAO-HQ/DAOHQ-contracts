@@ -33,4 +33,12 @@ contract ManagementFeeNode {
         );
         lastFeeCollected = block.timestamp;
     }
+
+    function updateTransferFee(IToken indexToken, uint256 newFee) external onlyManager{
+        indexToken.updateTransferFee(newFee);
+    }
+
+    function editFeeWallet(IToken indexToken, address newWallet) external onlyManager{
+        indexToken.editFeeWallet(newWallet);
+    }
 }

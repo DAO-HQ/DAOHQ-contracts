@@ -27,4 +27,8 @@ interface IToken is IERC20{
     function basePrice() external view returns(uint256);
 
     function addNode(address _node) external;
+
+    function updateTransferFee(uint256 newFee) external;
+    
+    function editFeeWallet(address newWallet) external;
 }

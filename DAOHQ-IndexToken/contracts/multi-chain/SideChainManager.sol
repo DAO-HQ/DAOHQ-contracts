@@ -14,11 +14,11 @@ interface IIssuanceManager{
 }
 
 contract SideChainManager is MinimalSwap{
+    
     ITokenBridge bridge;
-    //IIssuanceManager issueNode;
     address wPool;
-    //address indexToken;
     uint32 private nonce = 0;
+    
     event Issued(uint256 amtIssue, uint256 amtSpent);
 
     event Redemption(uint256 amtRedeemed, uint64 seq, address to, uint16 chainId);
@@ -28,8 +28,6 @@ contract SideChainManager is MinimalSwap{
      address _WETH) MinimalSwap(_WETH){
         bridge = ITokenBridge(_bridge);
         wPool = _wPool;
-        //issueNode = IIssuanceManager(_issueNode);
-        //indexToken = _indexToken;
     }
 
     function completeBridge(bytes memory encodedVm, address indexToken, address issueNode) external {

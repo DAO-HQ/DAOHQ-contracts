@@ -7,8 +7,7 @@ import "./IToken.sol";
 contract IndexToken is ERC20, ERC1155Holder, IToken{
 
     address feeWallet;
-    //TODO: add update function?
-    uint256 private constant transferFeed = 30;
+    uint256 private  transferFee = 30;
     uint256 public immutable basePrice;
     uint256 private cumulativeShare = 0;
     address[] private components;
@@ -76,7 +75,7 @@ contract IndexToken is ERC20, ERC1155Holder, IToken{
         }
     }
 
-    function _updateCumulativeShare(uint256 newShare, address component)private {
+    function _updateCumulativeShare(uint256 newShare, address component) private {
         uint256 oldShare = share[component];
         if(newShare >= oldShare){
             cumulativeShare += newShare - oldShare;
@@ -105,6 +104,18 @@ contract IndexToken is ERC20, ERC1155Holder, IToken{
         share[_componentRm] = 0;
     }
 
+    function addEditExternalPosition(bytes positionData,  uint256 share) external onlyManager{
+        address comp = address(uint160(uint256(keccak256(positionData))));
+        uint256 storage _share = share[comp]; 
+        if(share == 0){
+            externalPosition memory ext;
+            (ext.externalContract, ext.id) = abi.decode(positionData, (address, uint16));
+            externalComponents.push(ext);
+        }
+        _updateCumulativeShare(share, comp);
+        _share = share;
+    }
+
     function addNode(address _node) external onlyManager{
         nodes[_node] = true;
     }
@@ -129,8 +140,20 @@ contract IndexToken is ERC20, ERC1155Holder, IToken{
         return cumulativeShare;
     }
 
-    function _transferFeeAmount(uint256 amount) private pure returns(uint256){
-        return (amount * transferFeed)/10000;
+    function _transferFeeAmount(uint256 amount) private view returns(uint256){
+        return (amount * transferFee)/10000;
+    }
+
+    function updateTransferFee(uint256 newFee) external onlyNode{
+        transferFee = newFee;
+    }
+
+    function editFeeWallet(address newWallet) external onlyNode{
+        feeWallet = newWallet;
+    }
+
+    function addManager(address newManager) external onlyManager{
+        managers[newManager] == true;
     }
 
     function transfer(address to, uint256 amount)

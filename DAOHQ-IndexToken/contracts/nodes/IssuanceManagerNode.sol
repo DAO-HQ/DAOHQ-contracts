@@ -5,7 +5,6 @@ import "../IToken.sol";
 import "../exchange/MinimalSwap.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 
 interface IHostChainManager{
@@ -19,7 +18,6 @@ interface IHostChainManager{
         uint256 amount,
         bytes calldata data
     ) external;
-
 }
 
 contract IssuanceManager is MinimalSwap, ERC1155Holder{
@@ -172,7 +170,6 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
 
     function rebalanceExitedFunds(IToken indexToken, address[] memory exitedPositions, uint256[] memory replacementIndex) external {
         //sells out of exited positions and buys selected index(typically the token that replaced it)
-        //TODO: Update for external positions
         uint preBalance = WETH.balanceOf(address(this));
         address[] memory components = indexToken.getComponents();
         for(uint i = 0; i < exitedPositions.length; i++){
@@ -194,6 +191,11 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         _validateExternalData(externalValues, sigs);
         IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
         return _valueSet(indexToken, indexToken.getComponents(), _externals, externalValues);
+    }
+
+    function updateSigner(address newSigner) external{
+        require(msg.sender == externalSigner);
+        externalSigner = newSigner;
     }
 
     receive() external payable {}
