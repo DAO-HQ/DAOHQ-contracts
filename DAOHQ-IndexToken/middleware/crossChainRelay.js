@@ -1,22 +1,28 @@
 const Buffer = require('buffer');
 const wh = require("@certusone/wormhole-sdk");
 const Web3 = require("web3");
+const express = require('express');
 const axios = require('axios').default;
+const app = express()
+const port = 3005
+
 //Need one for each chain
 const web3ETH = new Web3(new Web3.providers.WebsocketProvider("ws://127.0.0.1:7545"));
 const web3Poly = new Web3(new Web3.providers.WebsocketProvider("ws://127.0.0.1:9545"));
 
 var fs = require('fs');
 //one for each chain
-const hostChainIssuer = "0xDC863BA2308F953a6AA815F2C6aBD6c7112b4a8F";
-const indexToken = "0x70A1003781987a373faf37A95B322BFFfE30AC37";
-const IssuanceNode = "0xaAC480E41d53435E7A638660C08115B3B69fa92d";
+const hostChainIssuer = "0x1C0dCC05050f54aCef9B708868cECa8D7471bAA2";
+const indexToken = "0x1F27D0c3f7554Eca5C79d988E2B077183bDF87b7";
+const IssuanceNode = "0xcc2C47A129Db44C6791C1caA8C5313887a31467A";
 
 const hostChainAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/HostChainIssuer.json")).abi;
-const sideChainManager = "0x30F377d8566593941a99566d3E6fac3B1c90E71a";
-const scToken = "0xd2497a2f64640D94E17Ea1577940672DEcEAF55e";
-const scIss = "0x9a60BbedBEE78f19660B225c227817e4c1e35333";
+const sideChainManager = "0x7eaffC4E712a4ae1eE291caee8517d7F7eAe2694";
+const scToken = "0x4C65c6bfd8Ae3c9A1087a1d9cBd2290AC0c53d89";
+const scIss = "0xB5A631616B77ECC62e9A3681A2655b89C9e3bFdf";
 const sideChainAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/SideChainManager.json")).abi;
+const ITokenabi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/IToken.json")).abi;
+const IssueAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/IssuanceManager.json")).abi;
 const hcContract = new web3ETH.eth.Contract(hostChainAbi, hostChainIssuer);
 const scContract = new web3Poly.eth.Contract(sideChainAbi, sideChainManager);
 
@@ -25,6 +31,53 @@ const bridges = {
     1: "0x98f3c9e6E3fAce36bAAd05FE09d375Ef1464288B",
     137: "0x0Aa3174De081C9A93CEA8805B7B792cF26aE3a15"
 }
+
+const contracts = {
+    137: {
+        Issue: new web3Poly.eth.Contract(IssueAbi, scIss),
+        token: new web3Poly.eth.Contract(ITokenabi, scToken)
+    }
+}
+
+function fixSignature (signature) {
+    // in geth its always 27/28, in ganache its 0/1. Change to 27/28 to prevent
+    // signature malleability if version is 0/1
+    // see https://github.com/ethereum/go-ethereum/blob/v1.8.23/internal/ethapi/api.go#L465
+    let v = parseInt(signature.slice(130, 132), 16);
+    if (v < 27) {
+      v += 27;
+    }
+    const vHex = v.toString(16);
+    return signature.slice(0, 130) + vHex;
+  }
+//console.log(fixSignature("0x0d01f9e8835513495d29d3f67c927c794de2a940791395ee20a6b20cf2041c733a5371fc13babf70f4e8d44ef9de50ce35f6436f53002efc2c3b2651e33a29b401"))
+
+app.get('/setValue', (req, res) => {
+    const chainId = req.query.id;
+    contracts[chainId].Issue
+    .methods
+    .getIndexValue(scToken, [], [])
+    .call()
+    .then(function(value){
+        contracts[chainId].token.methods
+        .totalSupply().call()
+        .then(function(totalSupply){
+            const ppt = web3ETH.utils.toBN(value)
+            .mul(web3ETH.utils.toBN(1e5))
+            .div(web3ETH.utils.toBN(totalSupply))
+            web3ETH.eth.getAccounts(function(error, result){
+                const hash = web3ETH.utils.soliditySha3(ppt).toString("hex")
+                web3ETH.eth.sign(hash, result[0])
+                .then(function(signature){
+                    res.send({sig: fixSignature(signature), data: ppt.toString()})
+                });
+            })
+        })
+    })
+})
+
+app.listen(port)
+console.log('Server started at http://localhost:' + port);
 
 async function monitorHostChainIssuance(){
     hcContract.events.Deposit()

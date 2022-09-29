@@ -9,7 +9,7 @@ import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 import { ITokenBridge } from "./HostChainIssuer.sol";
 
 interface IIssuanceManager{
-    function issueForExactETH(address indexToken, uint minQty, address to) external payable;
+    function issueForExactETH(address indexToken, uint minQty, address to, uint256[] memory externalValues, bytes[] memory sigs) external payable;
     function redeem(address indexToken, uint qty, address to) external;
 }
 
@@ -41,7 +41,7 @@ contract SideChainManager is MinimalSwap{
         uint256 w_bal = WETH.balanceOf(address(this));
         WETH.withdraw(w_bal);
         uint256 indexPrebal = WETH9(indexToken).balanceOf(address(this));
-        IIssuanceManager(issueNode).issueForExactETH{value: w_bal}(indexToken, 1000, address(this));
+        IIssuanceManager(issueNode).issueForExactETH{value: w_bal}(indexToken, 1000, address(this), new uint256[](0), new bytes[](0));
         emit Issued(WETH9(indexToken).balanceOf(address(this)) - indexPrebal, w_bal);
     }
 

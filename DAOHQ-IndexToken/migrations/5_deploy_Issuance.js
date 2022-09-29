@@ -15,8 +15,8 @@ module.exports = async function (deployer, network, accounts) {
     const indInst = await IndexToken.deployed();
     await indInst.addNode(instance.address);
     
-    /*if(network != "eth_dev"){
+    if(network != "eth_dev"){
         await instance
         .seedNewSet(indInst.address, 10000000, accounts[2], {from: accounts[2], value: web3.utils.toBN("570800000000000000")});
-    }*/
+    }
 };

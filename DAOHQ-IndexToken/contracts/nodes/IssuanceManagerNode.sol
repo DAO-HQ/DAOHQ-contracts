@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 import "../IToken.sol";
 import "../exchange/MinimalSwap.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 
 interface IHostChainManager{
@@ -21,13 +23,16 @@ interface IHostChainManager{
 }
 
 contract IssuanceManager is MinimalSwap, ERC1155Holder{
+    using ECDSA for bytes32;
 
     uint256 private constant PRECISION = 10 ** 12;
+    address private externalSigner;
     event ErrorSwap(address token, uint256 value, uint256 share, uint256 cumulativeShare);
     event Redemtion(uint256 WETHBal, uint256 fundsReceived, uint256 expectedOut);
     event valueData(uint preval, uint postval, uint totalSupply);
 
     constructor(address _WETH) MinimalSwap(_WETH){
+        externalSigner = msg.sender;
     }
 
     function _executeswap(address component, uint256 cumulativeShare, uint256 msgVal, IToken indexToken) private returns(uint256 amountOut) {
@@ -61,14 +66,15 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         IHostChainManager(position.externalContract).withdrawFunds(amountIn, uint256(position.id), to);
     }
     
-    function _swapEthForAll(IToken indexToken, uint256 ethVal, address[] memory components) private {
+    function _swapEthForAll(IToken indexToken, uint256 ethVal,
+     address[] memory components, IToken.externalPosition[] memory _externals) private returns(uint256 externalWeth){
         uint256 cumulativeShare = indexToken.getCumulativeShare();
         WETH.deposit{value: msg.value}();
         //Buy each component
         for(uint i = 0; i<components.length; i++){
             _executeswap(components[i], cumulativeShare, ethVal, indexToken/*, paths[i]*/);
         }
-        IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
+        externalWeth = WETH.balanceOf(address(this));
         //TODO: Alot of batching here will save gas
         for(uint i =0; i < _externals.length; i++){
             IToken.externalPosition memory position = _externals[i];
@@ -84,11 +90,17 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         return indexToken.getShare(uid);
     }
 
-    function _valueSet(IToken indexToken, address[] memory components) private view returns (uint256 wethValue){
+    function _valueSet(IToken indexToken, address[] memory components,
+     IToken.externalPosition[] memory _externals, uint256[] memory externalValues)
+     private view returns (uint256 wethValue){
         wethValue = 0;
         for (uint i = 0; i < components.length; i++){
             uint256 bal = IERC20(_getPoolToken(components[i])).balanceOf(address(indexToken));
             wethValue += _getAmountOut(components[i], bal, false);
+        }
+        for(uint i = 0; i < _externals.length; i++){
+            uint256 bal = IHostChainManager(_externals[i].externalContract).balanceOf(address(indexToken), uint256(_externals[i].id));
+            wethValue += (bal * externalValues[i]) / 10**5;
         }
     }
 
@@ -96,22 +108,37 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         return _executeSwaptoETH(component, 0, indexToken);
     }
 
+    function _validateExternalData(uint256[] memory externalValues, bytes[] memory sigs) private view{
+        for(uint i = 0; i < externalValues.length; i ++){
+            bytes32 _hash = keccak256(abi.encodePacked(externalValues[i])).toEthSignedMessageHash();
+            address _signer = _hash.recover(sigs[i]);
+            require(_signer == externalSigner, "Invalid External Data");
+        }
+    }
+
     function seedNewSet(IToken indexToken, uint minQty, address to) external payable {
         require(indexToken.totalSupply() == 0, "Token Already seeded");
         uint256 outputTokens = (msg.value * 10 ** 18) / indexToken.basePrice();
         require(outputTokens >= minQty, "Insuffiecient return amount");
-        _swapEthForAll(indexToken, msg.value, indexToken.getComponents());
+        IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
+        _swapEthForAll(indexToken, msg.value, indexToken.getComponents(), _externals);
         indexToken.mint(to, (outputTokens / PRECISION) * PRECISION);
     }
 
-    function issueForExactETH(IToken indexToken, uint minQty, address to ) external payable {
-        uint256 preSupply = indexToken.totalSupply();
+    function issueForExactETH(IToken indexToken, uint minQty, address to,
+     uint256[] memory externalValues, bytes[] memory sigs) external payable {
+        _validateExternalData(externalValues, sigs);
+        //tradeoff for stack too deep 
+        //uint256 preSupply = indexToken.totalSupply();
         address[] memory components = indexToken.getComponents();
-        uint256 preValue = _valueSet(indexToken, components);
-        _swapEthForAll(indexToken, msg.value, components);
-        uint256 outputTokens = ((((preSupply * _valueSet(indexToken, components)) / preValue) - preSupply) / PRECISION) * PRECISION; 
+        IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
+        uint256 preValue = _valueSet(indexToken, components, _externals, externalValues);
+        uint256 wethExt = _swapEthForAll(indexToken, msg.value, components, _externals);
+        uint256 outputTokens =
+         ((((indexToken.totalSupply() * ( wethExt + _valueSet(indexToken, components, _externals, externalValues)))
+         / preValue) - indexToken.totalSupply()) / PRECISION) * PRECISION; 
         require(outputTokens >= minQty, "Insuffiecient return amount");
-        emit valueData(preValue, _valueSet(indexToken, components), preSupply);
+        //emit valueData(preValue, _valueSet(indexToken, components, _externals, externalValues), preSupply);
         indexToken.mint(to, outputTokens);
     }
 
@@ -145,6 +172,7 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
 
     function rebalanceExitedFunds(IToken indexToken, address[] memory exitedPositions, uint256[] memory replacementIndex) external {
         //sells out of exited positions and buys selected index(typically the token that replaced it)
+        //TODO: Update for external positions
         uint preBalance = WETH.balanceOf(address(this));
         address[] memory components = indexToken.getComponents();
         for(uint i = 0; i < exitedPositions.length; i++){
@@ -157,12 +185,15 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
             _rawPoolSwap(components[replacementIndex[i]], amountWOut, address(indexToken), true);
         }
         if(WETH.balanceOf(address(this)) - preBalance > 0){
-            _swapEthForAll(indexToken, WETH.balanceOf(address(this)) - preBalance, indexToken.getComponents());
+            IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
+            _swapEthForAll(indexToken, WETH.balanceOf(address(this)) - preBalance, indexToken.getComponents(), _externals);
         }
     }
 
-    function getIndexValue(IToken indexToken) external view returns(uint256){
-        return _valueSet(indexToken, indexToken.getComponents());
+    function getIndexValue(IToken indexToken, uint256[] memory externalValues, bytes[] memory sigs) external view returns(uint256){
+        _validateExternalData(externalValues, sigs);
+        IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
+        return _valueSet(indexToken, indexToken.getComponents(), _externals, externalValues);
     }
 
     receive() external payable {}
