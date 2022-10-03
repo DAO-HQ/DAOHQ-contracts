@@ -104,16 +104,15 @@ contract IndexToken is ERC20, ERC1155Holder, IToken{
         share[_componentRm] = 0;
     }
 
-    function addEditExternalPosition(bytes positionData,  uint256 share) external onlyManager{
+    function addEditExternalPosition(bytes memory positionData,  uint256 _share) external onlyManager{
         address comp = address(uint160(uint256(keccak256(positionData))));
-        uint256 storage _share = share[comp]; 
-        if(share == 0){
+        if(share[comp] == 0){
             externalPosition memory ext;
             (ext.externalContract, ext.id) = abi.decode(positionData, (address, uint16));
             externalComponents.push(ext);
         }
-        _updateCumulativeShare(share, comp);
-        _share = share;
+        _updateCumulativeShare(_share, comp);
+        share[comp] = _share;
     }
 
     function addNode(address _node) external onlyManager{

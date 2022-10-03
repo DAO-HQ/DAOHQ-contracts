@@ -12,9 +12,9 @@ const web3Poly = new Web3(new Web3.providers.WebsocketProvider("ws://127.0.0.1:9
 
 var fs = require('fs');
 //one for each chain
-const hostChainIssuer = "0x1C0dCC05050f54aCef9B708868cECa8D7471bAA2";
-const indexToken = "0x1F27D0c3f7554Eca5C79d988E2B077183bDF87b7";
-const IssuanceNode = "0xcc2C47A129Db44C6791C1caA8C5313887a31467A";
+let hostChainIssuer = "0x1C0dCC05050f54aCef9B708868cECa8D7471bAA2";
+let indexToken = "0x1F27D0c3f7554Eca5C79d988E2B077183bDF87b7";
+let IssuanceNode = "0xcc2C47A129Db44C6791C1caA8C5313887a31467A";
 
 const hostChainAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/HostChainIssuer.json")).abi;
 const sideChainManager = "0x7eaffC4E712a4ae1eE291caee8517d7F7eAe2694";
@@ -76,130 +76,27 @@ app.get('/setValue', (req, res) => {
     })
 })
 
+app.post('/setAddresses', (req, res) => {
+    const addrs = req.body;
+    hostChainIssuer = addrs.hc;
+    IssuanceNode = addrs.is;
+    indexToken = addrs.in;
+    subscribeListeners();
+})
+
 app.listen(port)
 console.log('Server started at http://localhost:' + port);
 
-async function monitorHostChainIssuance(){
-    hcContract.events.Deposit()
-    .on('data', async function(event){
-        const emitterAddress = wh.getEmitterAddressEth(bridges[2]);
-        //TODO: retry
-        const signedVAA = await wh.getSignedVAA(
-            wh.WORMHOLE_RPC_HOST,
-            2,
-            emitterAddress,
-            event.returnValues.seq 
-        )
-        await scContract.methods
-        .completeBridge(Buffer.from(signedVAA.vaaBytes, "base64"))
-        .send();
-        console.log(event.returnedValues.seq)
-    });
-}
-
-async function monitorSideChainIssuance(){
-    //TODO:dynamic to sidechain ID
-    scContract.events.Issued()
-    .on('data', async function(event){
-        await hcContract.methods
-        .notifyBridgeCompletion(event.returnedValues.amtIssue, 5)
-        .send();
+function subscribeListeners() {
+    //Issuance flow
+    hcContract.events.Deposit({
+        fromBlock: 'latest'
+    }, function(error, event){ if(error){console.log(error);} })
+    .on('connected',  function(subscriptionId){
+        console.log(subscriptionId);
     })
-}
-
-async function monitorHostChainRedemption(){
-    hcContract.events.Withdraw()
-    .on('data', async function(event){
-        await scContract.methods
-        .redeem(event.returnedValues.amt, event.returnedValues.chainId, "")
-        .send();
-    });
-}
-
-async function monitorSideChainRedemption(){
-    //TODO:dynamic to sidechain ID
-    scContract.events.Redemption()
-    .on('data', async function(event){
-        const emitterAddress = wh.getEmitterAddressEth(bridges[5]);
-        //TODO:Retry logic
-        const signedVAA = await wh.getSignedVAA(
-            wh.WORMHOLE_RPC_HOST,
-            5,
-            emitterAddress,
-            event.returnedValues.seq
-        )
-        await hcContract.methods
-        .completeWithdrawl(Buffer.from(signedVAA.vaaBytes, 'base64'), event.returnedValues.to)
-        .send();
-    })
-}
-
-//Issuance flow
-hcContract.events.Deposit({
-    fromBlock: 'latest'
-}, function(error, event){ if(error){console.log(error);} })
-.on('connected',  function(subscriptionId){
-    console.log(subscriptionId);
-})
-.on('data', function(event){
-    setTimeout(function(){
-    axios.get('http://localhost:3000/api', {
-        params: {
-            id: event.returnValues.chainId,
-            seq: event.returnValues.seq
-        }
-        })
-        .catch(function(error){
-            console.log(error);
-        })
-        .then(function (response) {
-        //console.log(response.data)
-        const bytes = response.data.msg;
-        web3Poly.eth.getAccounts(function(error, result){
-            scContract.methods.completeBridge(bytes, scToken, scIss).send({from: result[0], gasLimit: 4000000}).then(console.log("funds bridged"));
-        })
-    })
-    }, 5000)
-});
-
-
-scContract.events.Issued()
-.on('connected',  function(subscriptionId){
-    console.log(subscriptionId);
-})
-.on('data', function(event){
-    console.log(event.returnValues);
-    web3ETH.eth.getAccounts(function(error, result){
-        hcContract
-        .methods
-        .notifyBridgeCompletion(event.returnValues.amtIssue, 137, indexToken, IssuanceNode)
-        .send({from: result[0]})
-        .then(console.log("complete Deposit"));
-    })
-})
-
-hcContract.events.Withdraw()
-.on('connected',  function(subscriptionId){
-    console.log(subscriptionId);
-})
-.on('data', function(event){
-    console.log(event.returnValues);
-    web3Poly.eth.getAccounts(function(error, result){
-        scContract
-        .methods
-        .redeem(event.returnValues.amt, 1, event.returnValues.toUser, scToken, scIss)
-        .send({from: result[0], gasLimit: 4000000})
-        .then(console.log("Funds withdrawn and bridged"));
-    })
-});
-
-scContract.events.Redemption()
-.on('connected',  function(subscriptionId){
-    console.log(subscriptionId);
-})
-.on('data', function(event){
-    console.log(event.returnValues);
-    setTimeout(function(){
+    .on('data', function(event){
+        setTimeout(function(){
         axios.get('http://localhost:3000/api', {
             params: {
                 id: event.returnValues.chainId,
@@ -212,13 +109,71 @@ scContract.events.Redemption()
             .then(function (response) {
             //console.log(response.data)
             const bytes = response.data.msg;
-            web3ETH.eth.getAccounts(function(error, result){
-                hcContract
-                .methods
-                .completeWithdrawl(bytes, event.returnValues.to)
-                .send({from: result[0]})
-                .then(console.log("funds bridged and paid"));
+            web3Poly.eth.getAccounts(function(error, result){
+                scContract.methods.completeBridge(bytes, scToken, scIss).send({from: result[0], gasLimit: 4000000}).then(console.log("funds bridged"));
             })
         })
         }, 5000)
-})
+    });
+
+
+    scContract.events.Issued()
+    .on('connected',  function(subscriptionId){
+        console.log(subscriptionId);
+    })
+    .on('data', function(event){
+        console.log(event.returnValues);
+        web3ETH.eth.getAccounts(function(error, result){
+            hcContract
+            .methods
+            .notifyBridgeCompletion(event.returnValues.amtIssue, 137, indexToken, IssuanceNode)
+            .send({from: result[0]})
+            .then(console.log("complete Deposit"));
+        })
+    })
+
+    hcContract.events.Withdraw()
+    .on('connected',  function(subscriptionId){
+        console.log(subscriptionId);
+    })
+    .on('data', function(event){
+        console.log(event.returnValues);
+        web3Poly.eth.getAccounts(function(error, result){
+            scContract
+            .methods
+            .redeem(event.returnValues.amt, 1, event.returnValues.toUser, scToken, scIss)
+            .send({from: result[0], gasLimit: 4000000})
+            .then(console.log("Funds withdrawn and bridged"));
+        })
+    });
+
+    scContract.events.Redemption()
+    .on('connected',  function(subscriptionId){
+        console.log(subscriptionId);
+    })
+    .on('data', function(event){
+        console.log(event.returnValues);
+        setTimeout(function(){
+            axios.get('http://localhost:3000/api', {
+                params: {
+                    id: event.returnValues.chainId,
+                    seq: event.returnValues.seq
+                }
+                })
+                .catch(function(error){
+                    console.log(error);
+                })
+                .then(function (response) {
+                //console.log(response.data)
+                const bytes = response.data.msg;
+                web3ETH.eth.getAccounts(function(error, result){
+                    hcContract
+                    .methods
+                    .completeWithdrawl(bytes, event.returnValues.to)
+                    .send({from: result[0]})
+                    .then(console.log("funds bridged and paid"));
+                })
+            })
+            }, 5000)
+    })
+}
