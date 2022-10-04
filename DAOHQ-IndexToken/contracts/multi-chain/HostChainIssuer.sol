@@ -39,7 +39,9 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
     
     event Deposit(uint256 amtWETH, uint16 chainId, uint64 seq);
 
-    event Withdraw(uint256 amt, uint256 chainId, address toUser);
+    event Withdraw(uint256 amt, uint256 chainId, address toUser, address hostContract);
+
+    event WithdrawComplete(uint256 amount, address to);
 
     constructor(string memory uri,
      address _manager,
@@ -77,7 +79,7 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
     function withdrawFunds(uint256 amtToken, uint256 id, address toUser) external{
         require(balanceOf(msg.sender, id) >= amtToken, "Insufficient balance of ERC1155");
         _burn(msg.sender, id, amtToken);
-        emit Withdraw(amtToken, id, toUser);
+        emit Withdraw(amtToken, id, toUser, address(this));
     }
 
     //2. complete tx
@@ -88,7 +90,9 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
         //_rawPoolSwap(wPool, WETH9(poolTok).balanceOf(address(this)), address(this), false);
         uint256 preBal = address(this).balance;
         WETH.withdraw(WETH.balanceOf(address(this)));
-        (bool sent, ) = payable(to).call{value: address(this).balance - preBal}("");
+        uint256 postBal = address(this).balance;
+        emit WithdrawComplete(postBal - preBal, to);
+        (bool sent, ) = payable(to).call{value: postBal - preBal}("");
         require(sent, "Failed to Transfer");
     }
 

@@ -1,5 +1,3 @@
-const Buffer = require('buffer');
-const wh = require("@certusone/wormhole-sdk");
 const Web3 = require("web3");
 const express = require('express');
 const axios = require('axios').default;
@@ -17,14 +15,14 @@ let indexToken = "0x1F27D0c3f7554Eca5C79d988E2B077183bDF87b7";
 let IssuanceNode = "0xcc2C47A129Db44C6791C1caA8C5313887a31467A";
 
 const hostChainAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/HostChainIssuer.json")).abi;
-const sideChainManager = "0x7eaffC4E712a4ae1eE291caee8517d7F7eAe2694";
-const scToken = "0x4C65c6bfd8Ae3c9A1087a1d9cBd2290AC0c53d89";
-const scIss = "0xB5A631616B77ECC62e9A3681A2655b89C9e3bFdf";
+const sideChainManager = "0x3E3BC8e8A102597A4Ce688732d9067EBE39E7D67";
+const scToken = "0x06bdC7F05f0C029e016358984E0E2d58f4dCe4c4";
+const scIss = "0x311Bc1aFed07B8540573A412159e520C6A36694b";
 const sideChainAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/SideChainManager.json")).abi;
 const ITokenabi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/IToken.json")).abi;
 const IssueAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/IssuanceManager.json")).abi;
-const hcContract = new web3ETH.eth.Contract(hostChainAbi, hostChainIssuer);
-const scContract = new web3Poly.eth.Contract(sideChainAbi, sideChainManager);
+let hcContract = new web3ETH.eth.Contract(hostChainAbi, hostChainIssuer);
+let scContract = new web3Poly.eth.Contract(sideChainAbi, sideChainManager);
 
 const bridges = {
     //ETH
@@ -76,18 +74,21 @@ app.get('/setValue', (req, res) => {
     })
 })
 
-app.post('/setAddresses', (req, res) => {
-    const addrs = req.body;
+app.get('/setAddresses', (req, res) => {
+    const addrs = req.query;
     hostChainIssuer = addrs.hc;
     IssuanceNode = addrs.is;
     indexToken = addrs.in;
     subscribeListeners();
+    res.send("OK");
 })
 
 app.listen(port)
 console.log('Server started at http://localhost:' + port);
 
 function subscribeListeners() {
+    hcContract = new web3ETH.eth.Contract(hostChainAbi, hostChainIssuer);
+    console.log(hcContract.address);
     //Issuance flow
     hcContract.events.Deposit({
         fromBlock: 'latest'
@@ -139,9 +140,11 @@ function subscribeListeners() {
     .on('data', function(event){
         console.log(event.returnValues);
         web3Poly.eth.getAccounts(function(error, result){
+            console.log(error);
+            console.log(event.returnValues);
             scContract
             .methods
-            .redeem(event.returnValues.amt, 1, event.returnValues.toUser, scToken, scIss)
+            .redeem(event.returnValues.amt, 1, event.returnValues.toUser, event.returnValues.hostContract, scToken, scIss)
             .send({from: result[0], gasLimit: 4000000})
             .then(console.log("Funds withdrawn and bridged"));
         })
@@ -170,7 +173,7 @@ function subscribeListeners() {
                     hcContract
                     .methods
                     .completeWithdrawl(bytes, event.returnValues.to)
-                    .send({from: result[0]})
+                    .send({from: result[0], gasLimit: 5000000})
                     .then(console.log("funds bridged and paid"));
                 })
             })

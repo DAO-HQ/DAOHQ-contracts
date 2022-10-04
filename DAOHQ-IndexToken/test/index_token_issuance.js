@@ -57,11 +57,11 @@ contract("IssuanceManagerNode", function (accounts) {
     const startPrice = web3.utils.toBN("57080000000000000");
 
     //const expectedOut = await IssueInst.getAmountOut(indexInst.address, startPrice);
-    const preVal = BN(await IssueInst.getIndexValue(indexInst.address));
+    const preVal = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     const preSupply = BN(await indexInst.totalSupply());
-    await IssueInst.issueForExactETH(indexInst.address, 0, accounts[3], {from: accounts[3], value: startPrice});
+    await IssueInst.issueForExactETH(indexInst.address, 0, accounts[3], [], [], {from: accounts[3], value: startPrice});
     const bal = BN(await indexInst.balanceOf(accounts[3]));
-    const postVal = BN(await IssueInst.getIndexValue(indexInst.address));
+    const postVal = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     const expectedOut = ((preSupply.mul(postVal).div(preVal)).sub(preSupply)).div(BN(1e18)).mul(BN(1e18))
     //console.log(expectedOut.toString());
     assert.equal(expectedOut.toString(), bal.toString(), "Balance not expected");
@@ -73,7 +73,7 @@ contract("IssuanceManagerNode", function (accounts) {
       const IssueInst = await IssuanceManager.deployed();
       const indexInst = await IndexToken.deployed();
       const startPrice = web3.utils.toBN("57080000000000000");
-      await IssueInst.issueForExactETH(indexInst.address, BN(1e20), accounts[3], {from: accounts[3], value: startPrice});
+      await IssueInst.issueForExactETH(indexInst.address, BN(1e20), accounts[3], [], [],{from: accounts[3], value: startPrice});
       assert.isTrue(false);
     }catch{
       assert.isTrue(true);
@@ -102,8 +102,8 @@ contract("IssuanceManagerNode", function (accounts) {
     const IssueInst = await IssuanceManager.deployed();
     const indexInst = await IndexToken.deployed();
     const startPrice = web3.utils.toBN("57080000000000000");
-    await IssueInst.issueForExactETH(indexInst.address, 0, accounts[3], {from: accounts[3], value: startPrice});
-    const preVal1 = BN(await IssueInst.getIndexValue(indexInst.address));
+    await IssueInst.issueForExactETH(indexInst.address, 0, accounts[3], [], [], {from: accounts[3], value: startPrice});
+    const preVal1 = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     const preBal = BN(await web3.eth.getBalance(accounts[2]));
     const preSupp1 = BN(await indexInst.totalSupply());
     const sellAmnt1 = BN(1e18);
@@ -118,7 +118,7 @@ contract("IssuanceManagerNode", function (accounts) {
     //console.log(expected1.toString());
     assert.equal(normalize(balanceGain1,1e12).toString(), normalize(expected1,1e12).toString());
 
-    const preVal2 = BN(await IssueInst.getIndexValue(indexInst.address));
+    const preVal2 = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     const preBal2 = BN(await web3.eth.getBalance(accounts[3]));
     const preSupp2 = BN(await indexInst.totalSupply());
     const sellAmnt2 = BN(1e18);
@@ -141,7 +141,7 @@ contract("IssuanceManagerNode", function (accounts) {
     const newComponent = "0x26aAd2da94C59524ac0D93F6D6Cbf9071d7086f2";
     const oldComponent = "0x11b1f53204d03E5529F09EB3091939e4Fd8c9CF3";
     const preBal = BN(await IssueInst.getTokenQty(indexInst.address, 4))
-    const preVal = BN(await IssueInst.getIndexValue(indexInst.address));
+    const preVal = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     await indexInst.replaceComponent(newComponent, oldComponent, 1000);
 
     const preBalNew = BN(await IssueInst.getTokenQty(indexInst.address, 4));
@@ -149,7 +149,7 @@ contract("IssuanceManagerNode", function (accounts) {
 
     await IssueInst.rebalanceExitedFunds(indexInst.address, [oldComponent], [4]);
     const postBalNew = BN(await IssueInst.getTokenQty(indexInst.address, 4));
-    const postVal = BN(await IssueInst.getIndexValue(indexInst.address));
+    const postVal = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     //console.log(preVal.toString(), postVal.toString());
     assert.isTrue(postBalNew > BN(0));
   });
@@ -167,7 +167,7 @@ contract("IssuanceManagerNode", function (accounts) {
       "0xCFfDdeD873554F362Ac02f8Fb1f02E5ada10516f",
       "0x05767d9EF41dC40689678fFca0608878fb3dE906"
       ]
-    const preVal = BN(await IssueInst.getIndexValue(indexInst.address));
+    const preVal = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     await indexInst.replaceComponent(newComponent[0], oldComponent[0], 1000);
     await indexInst.replaceComponent(newComponent[1], oldComponent[1], 1000);
     const postBal0 = BN(await IssueInst.getTokenQty(indexInst.address, 0));
@@ -178,7 +178,7 @@ contract("IssuanceManagerNode", function (accounts) {
     
     const postBalNew0 = BN(await IssueInst.getTokenQty(indexInst.address, 0));
     const postBalNew1 = BN(await IssueInst.getTokenQty(indexInst.address, 1));
-    const postVal = BN(await IssueInst.getIndexValue(indexInst.address));
+    const postVal = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     //console.log(preVal.toString(), postVal.toString());
     assert.isTrue(postBalNew0 > BN(0));
     assert.isTrue(postBalNew1 > BN(0));

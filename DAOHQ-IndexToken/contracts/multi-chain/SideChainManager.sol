@@ -43,7 +43,7 @@ contract SideChainManager is MinimalSwap{
         emit Issued(WETH9(indexToken).balanceOf(address(this)) - indexPrebal, w_bal);
     }
 
-    function redeem(uint256 amtRedeem, uint16 chainId, address to, address indexToken, address issueNode) external returns(uint64){
+    function redeem(uint256 amtRedeem, uint16 chainId, address to, address hostContract, address indexToken, address issueNode) external returns(uint64){
         require(WETH9(indexToken).balanceOf(address(this)) >= amtRedeem);
         uint256 preBal = address(this).balance;
         IIssuanceManager(issueNode).redeem(indexToken, amtRedeem, address(this));
@@ -56,7 +56,7 @@ contract SideChainManager is MinimalSwap{
         //Which token will we transfer?
         uint256 w_bal = WETH.balanceOf(address(this));
         WETH.approve(address(bridge), w_bal);
-        uint64 seq = bridge.transferTokens(address(WETH), w_bal, chainId, bytes32(uint256(uint160(to))), 0, nonce);
+        uint64 seq = bridge.transferTokens(address(WETH), w_bal, chainId, bytes32(uint256(uint160(hostContract))), 0, nonce);
         emit Redemption(amtRedeem, seq, to, chainId);
         return seq;
     }
