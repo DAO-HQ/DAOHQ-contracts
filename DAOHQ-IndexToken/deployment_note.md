@@ -32,16 +32,30 @@
     - manager: address, manager acct(used in backend service)
     - WETH: address, WETH address
     - bridge: address, Hyphen bridge address
-    - approvedIssuer: address, IssuanceManagerNode address
-    2.1 For each side chain deployment
+    - approvedIssuer: address, IssuanceManagerNode address\
+    2.1 For each side chain deployment\
     - `HostChainIssuer.methods.addSideChain(chainId, scAddress).send({from:manager})`
 3. Add external components to IndexToken. For each chainId
     - `IndexToken.addEditExternalPosition(hash(HostChainIssuer, chainId), share).send()`
 4. Start Backend service. Addresses required
     - Host IndexToken
     - Host IssuanceManager
-    - HostChainIssuer
-    For each Side Chain 
+    - HostChainIssuer\ 
+    For each Side Chain\ 
     - Side token
     - Side IssuanceAddress
     - SidedChainManager
+
+## Backend requirements 
+
+- Backend Service Must
+    - Listen for the following Host Chain events
+        - Deposit - wait for WETH to bridge, call complete Bridge for given SidedChainManager
+        - Withdraw - Call SideChainManager and initiate redemption
+    - Listen for the following SideChain events
+        - Issued - Get amount of SC index tokens issued and call HostChainIssuer to issue on host
+        - redemption - Log rededmption 
+    - Provide API endpoint for external index valuation
+        1. get set value of given chainId
+        2. sign data with Host manager address
+        3. provide result to caller for use in Issuance and valuation

@@ -150,7 +150,7 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         }
         //TODO: check to ensure external total > .02 ETH
         IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
-        //TODO: Alot of batching here will save gas
+        //TODO: batching here will save gas
         for(uint i =0; i < _externals.length; i++){
             _executeExternalSwaptoETH(indexToken, _externals[i], qty, to);
         }

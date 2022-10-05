@@ -2,6 +2,7 @@
 //Mints representative side chain token for host chain index
 //Redemption: burns representative token, alerts sidechain manager of burn
 
+//For Local test cases
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "../exchange/MinimalSwap.sol";

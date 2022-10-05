@@ -43,11 +43,11 @@ interface IHyphenManager{
     function getTokensInfo(address tokenAddress) external view returns (TokenInfo memory);
 }
 
-contract HostChainIssuer is ERC1155, MinimalSwap {
+contract HostChainIssuerV1 is ERC1155, MinimalSwap {
 
     address manager;
     address approvedIssuer;
-    IHyphenBridge bridge;
+    IHyphenBridge bridge;   
 
     mapping(uint16 => address) sideChainManagers;
     
@@ -75,7 +75,7 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
     //Issuance
     //potential est amount of returned tokens and mint. Cleanup at full tx completion
     //1. index Calls this
-    function depositWETH(uint256 amtWETH, uint16 chainId) external returns(uint64){
+    function depositWETH(uint256 amtWETH, uint16 chainId) external {
         require(msg.sender == approvedIssuer);
         require(amtWETH >=
          bridge.tokenManager()

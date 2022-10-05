@@ -3,10 +3,11 @@
 // Redemption: upon burn of Host chain token, unlocks these tokens and redeems for funds
 //bridges funds back to host chain
 
+//For local test cases
 pragma solidity ^0.8.0;
 import "../exchange/MinimalSwap.sol";
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
-import { ITokenBridge } from "./HostChainIssuer.sol";
+import { ITokenBridge } from "./HostChainIssuer_test.sol";
 
 interface IIssuanceManager{
     function issueForExactETH(address indexToken, uint minQty, address to, uint256[] memory externalValues, bytes[] memory sigs) external payable;
