@@ -7,37 +7,51 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "../exchange/MinimalSwap.sol";
 import { WETH9 } from "../exchange/MinimalSwap.sol";
 
-interface ITokenBridge{
-    function completeTransfer(bytes memory encodedVm) external;
-    function transferTokens(
-        address token,
+interface IHyphenBridge{
+
+    function tokenManager() external view returns(IHyphenManager);
+
+    function depositErc20(
+        uint256 toChainId,
+        address tokenAddress,
+        address receiver,
         uint256 amount,
-        uint16 recipientChain,
-        bytes32 recipient,
-        uint256 arbiterFee,
-        uint32 nonce
-    ) external payable returns (uint64 sequence);
+        string calldata tag
+    ) external;
 
-    function wrapAndTransferETH(
-        uint16 recipientChain,
-        bytes32 recipient,
-        uint256 arbiterFee,
-        uint32 nonce
-    ) external payable returns (uint64 sequence);
+    function depositNative(
+        address receiver,
+        uint256 toChainId,
+        string calldata tag
+    ) external payable; 
+}
 
-    function completeTransferAndUnwrapETH(bytes memory encodedVm) external ;
+interface IHyphenManager{
+
+    struct TokenConfig {
+        uint256 min;
+        uint256 max;
+    }
+    struct TokenInfo {
+        uint256 transferOverhead;
+        bool supportedToken;
+        uint256 equilibriumFee; // Percentage fee Represented in basis points
+        uint256 maxFee; // Percentage fee Represented in basis points
+        TokenConfig tokenConfig;
+    }
+
+    function getTokensInfo(address tokenAddress) external view returns (TokenInfo memory);
 }
 
 contract HostChainIssuer is ERC1155, MinimalSwap {
 
-    uint32 nonce = 0;
     address manager;
-    address wPool;
-    ITokenBridge bridge = ITokenBridge(0x932930cAA4068e47C786c60370358161569BD3D8);
+    address approvedIssuer;
+    IHyphenBridge bridge;
 
     mapping(uint16 => address) sideChainManagers;
     
-    event Deposit(uint256 amtWETH, uint16 chainId, uint64 seq);
+    event Deposit(uint256 amtWETH, uint16 chainId);
 
     event Withdraw(uint256 amt, uint256 chainId, address toUser, address hostContract);
 
@@ -45,10 +59,13 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
 
     constructor(string memory uri,
      address _manager,
-     address _pool, address _WETH)ERC1155(uri)MinimalSwap(_WETH){
+     address _WETH,
+     address _bridge,
+     address _approvedIssuer)ERC1155(uri)MinimalSwap(_WETH){
         manager = _manager;
-        wPool = _pool;
-    }
+        bridge = IHyphenBridge(_bridge);
+        approvedIssuer = _approvedIssuer;
+     }
 
     modifier onlyManager(){
         require(msg.sender == manager);
@@ -59,18 +76,22 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
     //potential est amount of returned tokens and mint. Cleanup at full tx completion
     //1. index Calls this
     function depositWETH(uint256 amtWETH, uint16 chainId) external returns(uint64){
-       WETH.transferFrom(msg.sender, address(this), amtWETH);
-       WETH.approve(address(bridge), amtWETH);
-       nonce += 1;
-       uint64 seq = bridge.transferTokens(address(WETH),
-        amtWETH, chainId, bytes32(uint256(uint160(sideChainManagers[chainId]))), 0, nonce);
-       emit Deposit(amtWETH, chainId, seq);
-       return seq;
+        require(msg.sender == approvedIssuer);
+        require(amtWETH >=
+         bridge.tokenManager()
+        .getTokensInfo(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE).tokenConfig.min,
+        "External Value too Low");
+
+        WETH.transferFrom(msg.sender, address(this), amtWETH);
+        WETH.withdraw(amtWETH);
+
+        bridge.depositNative{value: amtWETH}(sideChainManagers[chainId], chainId, "DAOHQ");
+        emit Deposit(amtWETH, chainId);
     }
 
     //2. When funds received on l2, backend calls this
-    function notifyBridgeCompletion(uint256 toIssue, uint256 chainId, address indexToken, address issuanceNode) external onlyManager{
-        _setApprovalForAll(indexToken, issuanceNode, true);
+    function notifyBridgeCompletion(uint256 toIssue, uint256 chainId, address indexToken) external onlyManager{
+        _setApprovalForAll(indexToken, approvedIssuer, true);
         _mint(indexToken, chainId, toIssue, "");
     }
 
@@ -82,32 +103,22 @@ contract HostChainIssuer is ERC1155, MinimalSwap {
         emit Withdraw(amtToken, id, toUser, address(this));
     }
 
-    //2. complete tx
-    function completeWithdrawl(bytes memory encodedVm, address to) external {
-        bridge.completeTransfer(encodedVm);
-        //TODO: uncomment for prod
-        //address poolTok = _getPoolToken(wPool);
-        //_rawPoolSwap(wPool, WETH9(poolTok).balanceOf(address(this)), address(this), false);
-        uint256 preBal = address(this).balance;
-        WETH.withdraw(WETH.balanceOf(address(this)));
-        uint256 postBal = address(this).balance;
-        emit WithdrawComplete(postBal - preBal, to);
-        (bool sent, ) = payable(to).call{value: postBal - preBal}("");
-        require(sent, "Failed to Transfer");
-    }
-
     function addSideChain(uint16 chainId, address scManager) external onlyManager{
         sideChainManagers[chainId] = scManager;
     }
 
-    function editSwapPool(address newPool) external onlyManager{
-        wPool = newPool;
+    function updateIssuer(address newIssuer) external onlyManager{
+        approvedIssuer = newIssuer;
     }
 
     function updateBridge(address newBridge) external onlyManager{
-        bridge = ITokenBridge(newBridge);
+        bridge = IHyphenBridge(newBridge);
     }  
     
+    function updateUri(string memory uri) external onlyManager{
+        _setURI(uri);
+    }
+
     receive() external payable {}
 
     fallback() external payable{}

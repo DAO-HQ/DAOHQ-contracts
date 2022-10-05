@@ -180,3 +180,11 @@ function subscribeListeners() {
             }, 5000)
     })
 }
+
+
+// prod version 
+// listen for deposit
+// on deposit execute web3.contract(WETH instance(sc)).once('Transfer', {filter:{to: scAddr, from: HyphenLPAddr}})
+// call completeBidge in SideChain manager contract
+
+//

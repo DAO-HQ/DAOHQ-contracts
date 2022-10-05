@@ -6,60 +6,84 @@
 pragma solidity ^0.8.0;
 import "../exchange/MinimalSwap.sol";
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
-import { ITokenBridge } from "./HostChainIssuer.sol";
+import { IHyphenBridge, IHyphenManager } from "./HostChainIssuer.sol";
 
 interface IIssuanceManager{
     function issueForExactETH(address indexToken, uint minQty, address to, uint256[] memory externalValues, bytes[] memory sigs) external payable;
     function redeem(address indexToken, uint qty, address to) external;
 }
 
-contract SideChainManager is MinimalSwap{
+contract SideChainManagerV1 is MinimalSwap{
     
-    ITokenBridge bridge;
+    IHyphenBridge bridge;
     address wPool;
-    uint32 private nonce = 0;
+    address manager;
     
     event Issued(uint256 amtIssue, uint256 amtSpent);
 
-    event Redemption(uint256 amtRedeemed, uint64 seq, address to, uint16 chainId);
+    event Redemption(uint256 amtRedeemed, address to, uint16 chainId);
 
     constructor(address _bridge,
      address _wPool,
      address _WETH) MinimalSwap(_WETH){
-        bridge = ITokenBridge(_bridge);
+        bridge = IHyphenBridge(_bridge);
         wPool = _wPool;
+        manager = msg.sender;
     }
 
-    function completeBridge(bytes memory encodedVm, address indexToken, address issueNode) external {
-        bridge.completeTransfer(encodedVm);
-        //TODO: Uncomment for prod
-        //uint256 amountIn = WETH9(_getPoolToken(wPool)).balanceOf(address(this));
-        //_rawPoolSwap(wPool, amountIn, address(this), false);
+    modifier onlyManager(){
+        require(msg.sender == manager);
+        _;
+    }
+
+    function _getPoolTokenBal() private returns(uint256){
+        return WETH9(_getPoolToken(wPool)).balanceOf(address(this));
+    }
+ 
+    //prod flow: get WETH, swaped for WNative, unwrap, issue
+    function completeBridge(address indexToken, address issueNode) external onlyManager{
+
+        uint256 amountIn =  _getPoolTokenBal();
+        require(amountIn > 0, "Transfer Not Complete");
+        _rawPoolSwap(wPool, amountIn, address(this), false);
 
         uint256 w_bal = WETH.balanceOf(address(this));
         WETH.withdraw(w_bal);
         uint256 indexPrebal = WETH9(indexToken).balanceOf(address(this));
-        IIssuanceManager(issueNode).issueForExactETH{value: w_bal}(indexToken, 1000, address(this), new uint256[](0), new bytes[](0));
+
+        IIssuanceManager(issueNode)
+        .issueForExactETH{value: w_bal}(indexToken, 1000, address(this), new uint256[](0), new bytes[](0));
+
         emit Issued(WETH9(indexToken).balanceOf(address(this)) - indexPrebal, w_bal);
     }
 
-    function redeem(uint256 amtRedeem, uint16 chainId, address to, address hostContract, address indexToken, address issueNode) external returns(uint64){
+    //prod flow: Receive Native, Wrap, swap for WETH, bridge
+    //NOTE: w/ hyphen receiver can be user, ie no need for ETH completion
+    function redeem(uint256 amtRedeem, uint16 chainId, address to,address indexToken, address issueNode) external onlyManager{
         require(WETH9(indexToken).balanceOf(address(this)) >= amtRedeem);
-        uint256 preBal = address(this).balance;
         IIssuanceManager(issueNode).redeem(indexToken, amtRedeem, address(this));
-        
-        WETH.deposit{value: address(this).balance - preBal}();
-        //TODO: Uncomment prod
-        //_rawPoolSwap(wPool, address(this).balance - preBal, address(this), true);
-        //address poolTok = _getPoolToken(wPool);
-        nonce += 1;
-        //Which token will we transfer?
-        uint256 w_bal = WETH.balanceOf(address(this));
-        WETH.approve(address(bridge), w_bal);
-        uint64 seq = bridge.transferTokens(address(WETH), w_bal, chainId, bytes32(uint256(uint160(hostContract))), 0, nonce);
-        emit Redemption(amtRedeem, seq, to, chainId);
-        return seq;
+
+        uint256 nativeBal = address(this).balance;
+        WETH.deposit{value: nativeBal}();
+
+        _rawPoolSwap(wPool, nativeBal, address(this), true);
+
+        uint256 hostBal = _getPoolTokenBal(); 
+        address hostToken = _getPoolToken(wPool);
+        require(hostBal >=
+         bridge.tokenManager()
+        .getTokensInfo(hostToken).tokenConfig.min,
+        "External Value too Low");
+
+        WETH9(hostToken).approve(address(bridge), hostBal);
+        bridge.depositErc20(1, hostToken, to, hostBal, "DAOHQ");
+
+        emit Redemption(amtRedeem, to, chainId);
     }
+
+    function updateBridge(address newBridge) external onlyManager{
+        bridge = IHyphenBridge(newBridge);
+    } 
 
     receive() external payable {}
 
