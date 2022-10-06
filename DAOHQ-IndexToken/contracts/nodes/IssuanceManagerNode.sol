@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 
 interface IHostChainManager{
-    function depositWETH(uint256 amtWETH, uint16 chainId) external returns(uint64);
+    function depositWETH(uint256 amtWETH, uint256 chainId) external returns(uint64);
     function withdrawFunds(uint256 amtToken, uint256 id, address toUser) external;
     function balanceOf(address account, uint256 id) external view returns (uint256);
     function safeTransferFrom(

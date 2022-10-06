@@ -49,9 +49,9 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
     address approvedIssuer;
     IHyphenBridge bridge;   
 
-    mapping(uint16 => address) sideChainManagers;
+    mapping(uint256 => address) sideChainManagers;
     
-    event Deposit(uint256 amtWETH, uint16 chainId);
+    event Deposit(uint256 amtWETH, uint256 chainId);
 
     event Withdraw(uint256 amt, uint256 chainId, address toUser, address hostContract);
 
@@ -75,7 +75,7 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
     //Issuance
     //potential est amount of returned tokens and mint. Cleanup at full tx completion
     //1. index Calls this
-    function depositWETH(uint256 amtWETH, uint16 chainId) external {
+    function depositWETH(uint256 amtWETH, uint256 chainId) external {
         require(msg.sender == approvedIssuer);
         require(amtWETH >=
          bridge.tokenManager()
@@ -103,7 +103,7 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
         emit Withdraw(amtToken, id, toUser, address(this));
     }
 
-    function addSideChain(uint16 chainId, address scManager) external onlyManager{
+    function addSideChain(uint256 chainId, address scManager) external onlyManager{
         sideChainManagers[chainId] = scManager;
     }
 

@@ -45,7 +45,7 @@ contract("HostChainIssuer", function (accounts) {
     const inIn = await IndexToken.deployed();
     const isIn = await IssuanceManager.deployed();
 
-    await inIn.addEditExternalPosition(web3.eth.abi.encodeParameters(['address', 'uint16'], [hcIn.address, 137]), 1000)
+    await inIn.addEditExternalPosition(web3.eth.abi.encodeParameters(['address', 'uint256'], [hcIn.address, 137]), 1000)
 
     const res = await axios.get('http://localhost:3005/setAddresses', { 
      params: {

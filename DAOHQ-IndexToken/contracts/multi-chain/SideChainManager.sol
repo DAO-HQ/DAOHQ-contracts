@@ -59,7 +59,7 @@ contract SideChainManagerV1 is MinimalSwap{
 
     //prod flow: Receive Native, Wrap, swap for WETH, bridge
     //NOTE: w/ hyphen receiver can be user, ie no need for ETH completion
-    function redeem(uint256 amtRedeem, uint16 chainId, address to,address indexToken, address issueNode) external onlyManager{
+    function redeem(uint256 amtRedeem, address to, address indexToken, address issueNode) external onlyManager{
         require(WETH9(indexToken).balanceOf(address(this)) >= amtRedeem);
         IIssuanceManager(issueNode).redeem(indexToken, amtRedeem, address(this));
 
@@ -78,7 +78,7 @@ contract SideChainManagerV1 is MinimalSwap{
         WETH9(hostToken).approve(address(bridge), hostBal);
         bridge.depositErc20(1, hostToken, to, hostBal, "DAOHQ");
 
-        emit Redemption(amtRedeem, to, chainId);
+        emit Redemption(amtRedeem, to, 1);
     }
 
     function updateBridge(address newBridge) external onlyManager{

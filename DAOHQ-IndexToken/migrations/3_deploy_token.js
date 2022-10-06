@@ -17,7 +17,7 @@ module.exports = async function (deployer, network, accounts) {
     "0xCFfDdeD873554F362Ac02f8Fb1f02E5ada10516f", "0x05767d9EF41dC40689678fFca0608878fb3dE906", "0xA70d458A4d9Bc0e6571565faee18a48dA5c0D593"*/]
          shares = [1000, 1000, 1000, 1000, 1000, /*1000/* 1000, 1000, 1000, 1000, 1000, 1000, 1000*/];
         const hcInst = await HostChainIssuer.deployed();
-        //external = [web3.eth.abi.encodeParameters(['address', 'uint16'], [hcInst.address, 137])];
+        //external = [web3.eth.abi.encodeParameters(['address', 'uint256'], [hcInst.address, 137])];
         external = []
      }else{
          pools = ["0xEEf611894CeaE652979C9D0DaE1dEb597790C6eE", "0x604229c960e5CACF2aaEAc8Be68Ac07BA9dF81c3"]

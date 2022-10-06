@@ -31,7 +31,7 @@ contract IndexToken is ERC20, ERC1155Holder, IToken{
                             share[_components[i]] = _shares[i];
                         }else{
                             externalPosition memory ext;
-                            (ext.externalContract, ext.id) = abi.decode(_externalComponents[_components.length - i], (address, uint16));
+                            (ext.externalContract, ext.id) = abi.decode(_externalComponents[_components.length - i], (address, uint256));
                             externalComponents.push(ext);
                             share[address(uint160(uint256(keccak256(_externalComponents[_components.length - i]))))] = _shares[i];
                         }
@@ -108,7 +108,7 @@ contract IndexToken is ERC20, ERC1155Holder, IToken{
         address comp = address(uint160(uint256(keccak256(positionData))));
         if(share[comp] == 0){
             externalPosition memory ext;
-            (ext.externalContract, ext.id) = abi.decode(positionData, (address, uint16));
+            (ext.externalContract, ext.id) = abi.decode(positionData, (address, uint256));
             externalComponents.push(ext);
         }
         _updateCumulativeShare(_share, comp);

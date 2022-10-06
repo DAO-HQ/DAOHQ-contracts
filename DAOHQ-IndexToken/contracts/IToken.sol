@@ -5,7 +5,7 @@ interface IToken is IERC20{
     
     struct externalPosition{
         address externalContract;
-        uint16 id;
+        uint256 id;
     }
 
     function burn(address _account, uint256 _amount) external;
