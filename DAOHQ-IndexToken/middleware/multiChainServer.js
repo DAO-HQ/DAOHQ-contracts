@@ -79,6 +79,9 @@ function fixSignature (signature) {
     const vHex = v.toString(16);
     return signature.slice(0, 130) + vHex;
 }
+//Rethink signing list to avoid mismatch
+//foreach loop, web3.utils.soliditySha3({t: 'uint256[]', v: [123, 234,554]})
+// sign ^. One sig to contract
 app.get('/setValue', (req, res) => {
     const chainId = req.query.id;
     chainInfo[chainId].isContract
@@ -139,7 +142,7 @@ function subscribeListeners() {
 
         chainData.scContract
         .methods
-        .redeem(event.returnValues.amt, 1, event.returnValues.toUser, chainData.token, chainData.issueNode)
+        .redeem(event.returnValues.amt, event.returnValues.toUser, chainData.token, chainData.issueNode)
         .send({from: result[0], gasLimit: 4000000})
         .then(console.log("Funds withdrawn and bridged"));
     });

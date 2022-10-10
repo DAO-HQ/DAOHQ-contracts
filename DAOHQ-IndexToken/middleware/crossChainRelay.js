@@ -16,9 +16,9 @@ let indexToken = "0x1F27D0c3f7554Eca5C79d988E2B077183bDF87b7";
 let IssuanceNode = "0xcc2C47A129Db44C6791C1caA8C5313887a31467A";
 
 const hostChainAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/HostChainIssuer.json")).abi;
-const sideChainManager = "0x3E3BC8e8A102597A4Ce688732d9067EBE39E7D67";
-const scToken = "0x06bdC7F05f0C029e016358984E0E2d58f4dCe4c4";
-const scIss = "0x311Bc1aFed07B8540573A412159e520C6A36694b";
+const sideChainManager = "0xf40349DFcCD87508Bf8263128Cdab5d94bc3dF6F";
+const scToken = "0x48ec47a583A4C0e064cc87C20553c2d694Eeb0eD";
+const scIss = "0xF8F8f91f797885dE79bC5BF7dd898e8a08021973";
 const sideChainAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/SideChainManager.json")).abi;
 const ITokenabi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/IToken.json")).abi;
 const IssueAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/IssuanceManager.json")).abi;
@@ -35,6 +35,10 @@ const contracts = {
     137: {
         Issue: new web3Poly.eth.Contract(IssueAbi, scIss),
         token: new web3Poly.eth.Contract(ITokenabi, scToken)
+    },
+    1:{
+        Issue: new web3ETH.eth.Contract(IssueAbi, IssuanceNode),
+        token: new web3ETH.eth.Contract(ITokenabi, indexToken)
     }
 }
 
@@ -51,27 +55,22 @@ function fixSignature (signature) {
   }
 //console.log(fixSignature("0x0d01f9e8835513495d29d3f67c927c794de2a940791395ee20a6b20cf2041c733a5371fc13babf70f4e8d44ef9de50ce35f6436f53002efc2c3b2651e33a29b401"))
 
-app.get('/setValue', (req, res) => {
-    const chainId = req.query.id;
-    contracts[chainId].Issue
+app.get('/setValue', async (req, res) => {
+    const chainId = req.query.ids;
+    console.log(chainId)
+    const ppts = [];
+    await scContract
     .methods
-    .getIndexValue(scToken, [], [])
+    .getIndexTokenPrice(scToken, scIss)
     .call()
-    .then(function(value){
-        contracts[chainId].token.methods
-        .totalSupply().call()
-        .then(function(totalSupply){
-            const ppt = web3ETH.utils.toBN(value)
-            .mul(web3ETH.utils.toBN(1e5))
-            .div(web3ETH.utils.toBN(totalSupply))
-            web3ETH.eth.getAccounts(function(error, result){
-                const hash = web3ETH.utils.soliditySha3(ppt).toString("hex")
-                web3ETH.eth.sign(hash, result[0])
-                .then(function(signature){
-                    res.send({sig: fixSignature(signature), data: ppt.toString()})
-                });
-            })
-        })
+    .then(res => {ppts.push(res)});
+
+    web3ETH.eth.getAccounts(function(error, result){
+        const hash = web3ETH.utils.soliditySha3({t: 'uint256[]', v: ppts}).toString("hex")
+        web3ETH.eth.sign(hash, result[0])
+        .then(signature => {
+            res.send({sig: fixSignature(signature), data: ppts})
+        });
     })
 })
 
@@ -88,8 +87,8 @@ app.listen(port)
 console.log('Server started at http://localhost:' + port);
 
 function subscribeListeners() {
+    console.log(hostChainIssuer)
     hcContract = new web3ETH.eth.Contract(hostChainAbi, hostChainIssuer);
-    console.log(hcContract.address);
     //Issuance flow
     hcContract.events.Deposit({
         fromBlock: 'latest'

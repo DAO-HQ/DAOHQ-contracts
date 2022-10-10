@@ -106,10 +106,10 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         return _executeSwaptoETH(component, 0, indexToken);
     }
 
-    function _validateExternalData(uint256[] memory externalValues, bytes[] memory sigs) private view{
-        for(uint i = 0; i < externalValues.length; i ++){
-            bytes32 _hash = keccak256(abi.encodePacked(externalValues[i])).toEthSignedMessageHash();
-            address _signer = _hash.recover(sigs[i]);
+    function _validateExternalData(uint256[] memory externalValues, bytes memory sigs) private view{
+        if(externalValues.length > 0){
+            bytes32 _hash = keccak256(abi.encodePacked(externalValues)).toEthSignedMessageHash();
+            address _signer = _hash.recover(sigs);
             require(_signer == externalSigner, "Invalid External Data");
         }
     }
@@ -124,7 +124,7 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
     }
 
     function issueForExactETH(IToken indexToken, uint minQty, address to,
-     uint256[] memory externalValues, bytes[] memory sigs) external payable {
+     uint256[] memory externalValues, bytes memory sigs) external payable {
         _validateExternalData(externalValues, sigs);
         //tradeoff for stack too deep 
         //uint256 preSupply = indexToken.totalSupply();
@@ -187,7 +187,7 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         }
     }
 
-    function getIndexValue(IToken indexToken, uint256[] memory externalValues, bytes[] memory sigs) external view returns(uint256){
+    function getIndexValue(IToken indexToken, uint256[] memory externalValues, bytes memory sigs) external view returns(uint256){
         _validateExternalData(externalValues, sigs);
         IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
         return _valueSet(indexToken, indexToken.getComponents(), _externals, externalValues);

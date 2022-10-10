@@ -14,9 +14,9 @@ const IssuanceManager = artifacts.require("IssuanceManager");
 contract("HostChainIssuer", function (accounts) {
   const web3Poly = new Web3(new Web3.providers.WebsocketProvider("ws://127.0.0.1:9545"));
   //Update before test
-  const sideChainManager = "0x3E3BC8e8A102597A4Ce688732d9067EBE39E7D67";
-  const scToken = "0x06bdC7F05f0C029e016358984E0E2d58f4dCe4c4";
-  const scIss = "0x311Bc1aFed07B8540573A412159e520C6A36694b";
+  const sideChainManager = "0xf40349DFcCD87508Bf8263128Cdab5d94bc3dF6F";
+  const scToken = "0x48ec47a583A4C0e064cc87C20553c2d694Eeb0eD";
+  const scIss = "0xF8F8f91f797885dE79bC5BF7dd898e8a08021973";
   //const sideChainAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/SideChainManager.json")).abi;
   const ITokenabi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/IToken.json")).abi;
   const IssueAbi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/IssuanceManager.json")).abi;
@@ -34,7 +34,7 @@ contract("HostChainIssuer", function (accounts) {
   async function getExternalValue(){
     const res = await axios.get('http://localhost:3005/setValue', {
       params: {
-          id: 137 
+          ids: 137 
       }
       })
     return res.data;
@@ -53,7 +53,7 @@ contract("HostChainIssuer", function (accounts) {
       is: isIn.address,
       in: inIn.address
     }});
-
+    console.log(isIn.address);
     return assert.isTrue(true);
   });
 
@@ -61,14 +61,13 @@ contract("HostChainIssuer", function (accounts) {
     const inIn = await IndexToken.deployed();
     const isIn = await IssuanceManager.deployed();
     const hcIn = await HostChainIssuer.deployed();
-                                        104011490857647023
     const startPrice = web3.utils.toBN("57080000000000000");
     const extValData = await getExternalValue()
     await isIn.seedNewSet(inIn.address, 100000, accounts[2],
       /*[extValData.data], [extValData.sig],*/ {from: accounts[2], value: startPrice, gasLimit: 5000000});
     await timeout(8000);
     
-    const res = await isIn.getIndexValue(inIn.address, [extValData.data], [extValData.sig])
+    const res = await isIn.getIndexValue(inIn.address, extValData.data, extValData.sig)
     const delt = startPrice.sub(BN(res))
     assert.isTrue(delt.lt(BN("10000000000000000")));
     const nftBal = await hcIn.balanceOf(inIn.address, 137)
@@ -84,7 +83,7 @@ contract("HostChainIssuer", function (accounts) {
     const preSideTok = await scTokenContract.methods.balanceOf(sideChainManager).call();
     const extValData = await getExternalValue()
     await isIn.issueForExactETH(
-      inIn.address, 10000, accounts[3], [extValData.data], [extValData.sig],
+      inIn.address, 10000, accounts[3], extValData.data, extValData.sig,
        {from: accounts[3], value: startPrice});
     await timeout(8000);
     const postNft = await hcIn.balanceOf(inIn.address, 137);
@@ -111,7 +110,7 @@ contract("HostChainIssuer", function (accounts) {
     const postSideTok = await scTokenContract.methods.balanceOf(sideChainManager).call();
     const postETHVal = await web3.eth.getBalance(accounts[2]);
     const balDelta = BN(postETHVal).add(BN(receipt.receipt.gasUsed)).sub(BN(preETHVal));
-    console.log(balDelta.toString());
+    //console.log(balDelta.toString());
     assert.isTrue(balDelta.gt(BN("55000000000000000")));
     assert.equal(BN(preNft).sub(BN(postNft)).toString(), BN(preSideTok).sub(BN(postSideTok)).toString())
     assert.equal(BN(preNft).sub(BN(postNft)).toString(), BN(preNft).mul(BN(1e18)).div(BN(ts)).toString());
@@ -129,13 +128,13 @@ contract("HostChainIssuer", function (accounts) {
     const inIn = await IndexToken.deployed();
     const isIn = await IssuanceManager.deployed();
     const startPrice = web3.utils.toBN("57080000000000000");
-    const fakeData = 1000
+    const fakeData = [1000]
     const fakeSig = fixSignature(
-      await web3.eth.sign(web3.utils.soliditySha3(fakeData).toString("hex"), accounts[3]));
+      await web3.eth.sign(web3.utils.soliditySha3({t: "uint256[]", v: fakeData}).toString("hex"), accounts[3]));
     
     try{
       await isIn.issueForExactETH(
-        inIn.address, 10000, accounts[3], [fakeData], [fakeSig],
+        inIn.address, 10000, accounts[3], [fakeData], fakeSig,
          {from: accounts[3], value: startPrice});
       assert.isTrue(false);
     }catch{

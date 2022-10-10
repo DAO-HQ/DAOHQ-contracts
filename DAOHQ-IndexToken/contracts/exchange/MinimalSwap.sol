@@ -15,6 +15,7 @@ interface WETH9{
     function approve(address to, uint256 amount) external;
     function transferFrom(address from, address to, uint256 wad) external;
     function transfer(address to, uint256 amount) external;
+    function totalSupply() external view returns(uint256);
 }
 
 contract MinimalSwap{

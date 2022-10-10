@@ -118,7 +118,7 @@ contract("IndexToken", function (accounts) {
     const indexInst = await IndexToken.deployed();
     await indexInst.removeNode(IssueInst.address);
     try{
-      await IssueInst.issueForExactETH(indexInst.address, 0, accounts[3], [], [], {from: accounts[3], value: BN(1e18)});
+      await IssueInst.issueForExactETH(indexInst.address, 0, accounts[3], [], "", {from: accounts[3], value: BN(1e18)});
       assert.isTrue(false);
     }catch{
       assert.isTrue(true);

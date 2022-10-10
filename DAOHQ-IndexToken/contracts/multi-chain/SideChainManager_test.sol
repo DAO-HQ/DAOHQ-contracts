@@ -7,12 +7,9 @@
 pragma solidity ^0.8.0;
 import "../exchange/MinimalSwap.sol";
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
+import { IIssuanceManager } from "./SideChainManager.sol";
 import { ITokenBridge } from "./HostChainIssuer_test.sol";
 
-interface IIssuanceManager{
-    function issueForExactETH(address indexToken, uint minQty, address to, uint256[] memory externalValues, bytes[] memory sigs) external payable;
-    function redeem(address indexToken, uint qty, address to) external;
-}
 
 contract SideChainManager is MinimalSwap{
     
@@ -41,7 +38,7 @@ contract SideChainManager is MinimalSwap{
         uint256 w_bal = WETH.balanceOf(address(this));
         WETH.withdraw(w_bal);
         uint256 indexPrebal = WETH9(indexToken).balanceOf(address(this));
-        IIssuanceManager(issueNode).issueForExactETH{value: w_bal}(indexToken, 1000, address(this), new uint256[](0), new bytes[](0));
+        IIssuanceManager(issueNode).issueForExactETH{value: w_bal}(indexToken, 1000, address(this), new uint256[](0), new bytes(0));
         emit Issued(WETH9(indexToken).balanceOf(address(this)) - indexPrebal, w_bal);
     }
 
@@ -64,6 +61,12 @@ contract SideChainManager is MinimalSwap{
         emit Redemption(amtRedeem, seq, to, chainId);
         return seq;
     }
+
+    function getIndexTokenPrice(address indexToken, address issueNode) external view returns(uint256){
+        uint256 nativeValue = IIssuanceManager(issueNode).getIndexValue(indexToken, new uint256[](0), "");
+        //uint256 convertVal = _getAmountOut(wPool, nativeValue, true) * 10**5;
+        return (nativeValue * 10**5) / WETH9(indexToken).totalSupply();
+    } 
 
     receive() external payable {}
 

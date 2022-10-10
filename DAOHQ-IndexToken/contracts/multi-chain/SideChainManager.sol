@@ -9,8 +9,9 @@ import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 import { IHyphenBridge, IHyphenManager } from "./HostChainIssuer.sol";
 
 interface IIssuanceManager{
-    function issueForExactETH(address indexToken, uint minQty, address to, uint256[] memory externalValues, bytes[] memory sigs) external payable;
+    function issueForExactETH(address indexToken, uint minQty, address to, uint256[] memory externalValues, bytes memory sigs) external payable;
     function redeem(address indexToken, uint qty, address to) external;
+    function getIndexValue(address indexToken, uint256[] memory externalValues, bytes memory sig) external view returns(uint256);
 }
 
 contract SideChainManagerV1 is MinimalSwap{
@@ -52,7 +53,7 @@ contract SideChainManagerV1 is MinimalSwap{
         uint256 indexPrebal = WETH9(indexToken).balanceOf(address(this));
 
         IIssuanceManager(issueNode)
-        .issueForExactETH{value: w_bal}(indexToken, 1000, address(this), new uint256[](0), new bytes[](0));
+        .issueForExactETH{value: w_bal}(indexToken, 1000, address(this), new uint256[](0), new bytes(0));
 
         emit Issued(WETH9(indexToken).balanceOf(address(this)) - indexPrebal, w_bal);
     }
@@ -80,6 +81,12 @@ contract SideChainManagerV1 is MinimalSwap{
 
         emit Redemption(amtRedeem, to, 1);
     }
+
+    function getIndexTokenPrice(address indexToken, address issueNode) external view returns(uint256){
+        uint256 nativeValue = IIssuanceManager(issueNode).getIndexValue(indexToken, new uint256[](0), "");
+        uint256 convertVal = _getAmountOut(wPool, nativeValue, true) * 10**5;
+        return convertVal / WETH9(indexToken).totalSupply();
+    } 
 
     function updateBridge(address newBridge) external onlyManager{
         bridge = IHyphenBridge(newBridge);

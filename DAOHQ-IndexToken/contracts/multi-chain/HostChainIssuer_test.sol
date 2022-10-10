@@ -29,15 +29,6 @@ interface ITokenBridge{
     function completeTransferAndUnwrapETH(bytes memory encodedVm) external ;
 }
 
-interface IHyphenBridge{
-    function depositErc20(
-        uint256 toChainId,
-        address tokenAddress,
-        address receiver,
-        uint256 amount,
-        string calldata tag
-    ) public
-}
 
 contract HostChainIssuer is ERC1155, MinimalSwap {
 

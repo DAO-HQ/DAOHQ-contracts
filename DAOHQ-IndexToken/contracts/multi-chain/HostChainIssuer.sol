@@ -57,6 +57,7 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
 
     event WithdrawComplete(uint256 amount, address to);
 
+    // ADD NAME VAR
     constructor(string memory uri,
      address _manager,
      address _WETH,

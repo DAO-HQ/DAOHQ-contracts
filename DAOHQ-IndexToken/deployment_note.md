@@ -46,6 +46,7 @@
     - Side IssuanceAddress
     - SidedChainManager
 
+NOTE: All SideChainManager + HostChainIssuer deployment addresses must be Whitelisted with Hyphen/Biconomy
 ## Backend requirements 
 
 - Backend Service Must
