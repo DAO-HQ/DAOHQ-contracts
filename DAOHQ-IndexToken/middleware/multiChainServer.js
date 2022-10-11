@@ -70,45 +70,6 @@ chainInfo.keys().forEach(chainId => {
     }
 });
 
-// Server region
-function fixSignature (signature) {
-    let v = parseInt(signature.slice(130, 132), 16);
-    if (v < 27) {
-      v += 27;
-    }
-    const vHex = v.toString(16);
-    return signature.slice(0, 130) + vHex;
-}
-//Rethink signing list to avoid mismatch
-//foreach loop, web3.utils.soliditySha3({t: 'uint256[]', v: [123, 234,554]})
-// sign ^. One sig to contract
-app.get('/setValue', (req, res) => {
-    const chainId = req.query.id;
-    chainInfo[chainId].isContract
-    .methods
-    .getIndexValue(scToken, [], [])
-    .call()
-    .then(value => {
-        chainInfo[chainId].tokContract.methods
-        .totalSupply().call()
-        .then(totalSupply => {
-            const web3ETH = chainInfo[1].provider;
-
-            const ppt = web3ETH.utils.toBN(value)
-            .mul(web3ETH.utils.toBN(1e5))
-            .div(web3ETH.utils.toBN(totalSupply))
-
-            web3ETH.eth.getAccounts(function(error, result){
-                const hash = web3ETH.utils.soliditySha3(ppt).toString("hex")
-                web3ETH.eth.sign(hash, result[0])
-                .then(function(signature){
-                    res.send({sig: fixSignature(signature), data: ppt.toString()})
-                });
-            })
-        })
-    })
-})
-
 //Event Listener region
 
 function subscribeListeners() {
@@ -123,7 +84,7 @@ function subscribeListeners() {
         const chainData = chainInfo[event.returnValues.chainId];
         chainData.wethContract.once("Transfer", {
             filter: {src: chainData.bridge, dst: chainData.scContract},
-            fromBlock: 0
+            fromBlock: 'latest'
         }, function(error, event){
              chainData.scContract
              .methods
@@ -169,9 +130,9 @@ function subscribeListeners() {
 
 // Start Listensing for events
 
-subscribeListeners()
+//subscribeListeners()
 
 //start server 
 
-app.listen(port)
-console.log('Server started at http://localhost:' + port);
+//app.listen(port)
+//console.log('Server started at http://localhost:' + port);
