@@ -33,7 +33,7 @@ contract SideChainManagerV1 is MinimalSwap{
     }
 
     modifier onlyManager(){
-        require(msg.sender == manager);
+        require(msg.sender == manager, "restricted");
         _;
     }
 
@@ -61,7 +61,7 @@ contract SideChainManagerV1 is MinimalSwap{
     //prod flow: Receive Native, Wrap, swap for WETH, bridge
     //NOTE: w/ hyphen receiver can be user, ie no need for ETH completion
     function redeem(uint256 amtRedeem, address to, address indexToken, address issueNode) external onlyManager{
-        require(WETH9(indexToken).balanceOf(address(this)) >= amtRedeem);
+        require(WETH9(indexToken).balanceOf(address(this)) >= amtRedeem, "Insufficient Balance");
         IIssuanceManager(issueNode).redeem(indexToken, amtRedeem, address(this));
 
         uint256 nativeBal = address(this).balance;

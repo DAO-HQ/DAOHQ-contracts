@@ -57,7 +57,6 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
 
     event WithdrawComplete(uint256 amount, address to);
 
-    // ADD NAME VAR
     constructor(string memory uri,
      address _manager,
      address _WETH,
@@ -69,7 +68,7 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
      }
 
     modifier onlyManager(){
-        require(msg.sender == manager);
+        require(msg.sender == manager, "restricted");
         _;
     }
 
@@ -77,7 +76,7 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
     //potential est amount of returned tokens and mint. Cleanup at full tx completion
     //1. index Calls this
     function depositWETH(uint256 amtWETH, uint256 chainId) external {
-        require(msg.sender == approvedIssuer);
+        require(msg.sender == approvedIssuer, "Caller must be Issuer");
         require(amtWETH >=
          bridge.tokenManager()
         .getTokensInfo(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE).tokenConfig.min,

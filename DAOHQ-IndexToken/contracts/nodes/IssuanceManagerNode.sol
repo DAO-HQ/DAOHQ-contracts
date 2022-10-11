@@ -5,6 +5,7 @@ import "../IToken.sol";
 import "../exchange/MinimalSwap.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 
 interface IHostChainManager{
@@ -20,27 +21,28 @@ interface IHostChainManager{
     ) external;
 }
 
-contract IssuanceManager is MinimalSwap, ERC1155Holder{
+contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
     using ECDSA for bytes32;
 
     uint256 private constant PRECISION = 10 ** 12;
     address private externalSigner;
-    event ErrorSwap(address token, uint256 value, uint256 share, uint256 cumulativeShare);
-    event Redemtion(uint256 WETHBal, uint256 fundsReceived, uint256 expectedOut);
-    event valueData(uint preval, uint postval, uint totalSupply);
+    uint256 private scMin;
 
-    constructor(address _WETH) MinimalSwap(_WETH){
+    constructor(address _WETH, uint256 _scMin) MinimalSwap(_WETH){
         externalSigner = msg.sender;
+        scMin = _scMin;
     }
 
-    function _executeswap(address component, uint256 cumulativeShare, uint256 msgVal, IToken indexToken) private returns(uint256 amountOut) {
+    function _executeswap(address component, uint256 cumulativeShare, uint256 msgVal, IToken indexToken)
+     private returns(uint256 amountOut) {
         uint256 share = indexToken.getShare(component);
         uint256 value = (msgVal * share) / cumulativeShare;
 
         return _rawPoolSwap(component, value, address(indexToken), true);
     }
 
-    function _executeSwaptoETH(address pool, uint256 indexQty, IToken indexToken) private returns(uint256 amountOut){
+    function _executeSwaptoETH(address pool, uint256 indexQty, IToken indexToken)
+     private returns(uint256 amountOut){
         address token = _getPoolToken(pool);
         uint256 amountIn = IERC20(token).balanceOf(address(indexToken));
         // 0 index qty signals an exit
@@ -55,7 +57,8 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         amountOut = _rawPoolSwap(pool, amountIn, address(this), false);
     }
 
-    function _executeExternalSwaptoETH(IToken indexToken, IToken.externalPosition memory position, uint256 qty, address to) private {
+    function _executeExternalSwaptoETH(IToken indexToken, IToken.externalPosition memory position, uint256 qty, address to)
+     private {
         uint256 amountIn = IHostChainManager(position.externalContract).balanceOf(address(indexToken), uint256(position.id));
         if(qty > 0){
             amountIn = (qty * amountIn) / indexToken.totalSupply();
@@ -65,12 +68,14 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
     }
     
     function _swapEthForAll(IToken indexToken, uint256 ethVal,
-     address[] memory components, IToken.externalPosition[] memory _externals) private returns(uint256 externalWeth){
+        address[] memory components, IToken.externalPosition[] memory _externals)
+        private returns(uint256 externalWeth){
+
         uint256 cumulativeShare = indexToken.getCumulativeShare();
         WETH.deposit{value: msg.value}();
         //Buy each component
         for(uint i = 0; i<components.length; i++){
-            _executeswap(components[i], cumulativeShare, ethVal, indexToken/*, paths[i]*/);
+            _executeswap(components[i], cumulativeShare, ethVal, indexToken);
         }
         externalWeth = WETH.balanceOf(address(this));
         //TODO: Alot of batching here will save gas
@@ -78,6 +83,7 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
             IToken.externalPosition memory position = _externals[i];
             uint256 share = _getExternalShare(indexToken,  position.externalContract, position.id);
             uint256 value = (ethVal * share) / cumulativeShare;
+            require(value >= scMin, "Insufficient side chain bridge amount, add additional value");
             WETH.approve(position.externalContract, value);
             IHostChainManager(position.externalContract).depositWETH(value, position.id);
         }
@@ -136,17 +142,16 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
          ((((indexToken.totalSupply() * ( wethExt + _valueSet(indexToken, components, _externals, externalValues)))
          / preValue) - indexToken.totalSupply()) / PRECISION) * PRECISION; 
         require(outputTokens >= minQty, "Insuffiecient return amount");
-        //emit valueData(preValue, _valueSet(indexToken, components, _externals, externalValues), preSupply);
         indexToken.mint(to, outputTokens);
     }
 
-    function redeem(IToken indexToken, uint qty, address to) external {
+    function redeem(IToken indexToken, uint qty, address to) external nonReentrant{
         require(indexToken.balanceOf(to) >= qty, "User does not have sufficeint balance");
         
         address[] memory components = indexToken.getComponents();
         uint256 funds = 0;
         for(uint i = 0; i<components.length; i++){
-            funds += _executeSwaptoETH(components[i], qty, indexToken /*, paths[i]*/);
+            funds += _executeSwaptoETH(components[i], qty, indexToken);
         }
         //TODO: check to ensure external total > .02 ETH
         IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
@@ -154,8 +159,6 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         for(uint i =0; i < _externals.length; i++){
             _executeExternalSwaptoETH(indexToken, _externals[i], qty, to);
         }
-        //require(expectedOut == funds, "incorrect redemption amount");
-        //emit Redemtion(WETH.balanceOf(address(this)), funds, expectedOut);
         WETH.withdraw(funds);
         indexToken.burn(to, qty);
         (bool sent, ) = payable(to).call{value: funds}("");
@@ -168,7 +171,8 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         return balance;
     }
 
-    function rebalanceExitedFunds(IToken indexToken, address[] memory exitedPositions, uint256[] memory replacementIndex) external {
+    function rebalanceExitedFunds(IToken indexToken, address[] memory exitedPositions, uint256[] memory replacementIndex)
+     external {
         //sells out of exited positions and buys selected index(typically the token that replaced it)
         uint preBalance = WETH.balanceOf(address(this));
         address[] memory components = indexToken.getComponents();
@@ -187,7 +191,8 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
         }
     }
 
-    function getIndexValue(IToken indexToken, uint256[] memory externalValues, bytes memory sigs) external view returns(uint256){
+    function getIndexValue(IToken indexToken, uint256[] memory externalValues, bytes memory sigs)
+     external view returns(uint256){
         _validateExternalData(externalValues, sigs);
         IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
         return _valueSet(indexToken, indexToken.getComponents(), _externals, externalValues);
@@ -196,6 +201,11 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder{
     function updateSigner(address newSigner) external{
         require(msg.sender == externalSigner);
         externalSigner = newSigner;
+    }
+
+    function updateBridgeMin(uint256 newScMin) external {
+        require(msg.sender == externalSigner);
+        scMin = newScMin;
     }
 
     receive() external payable {}
