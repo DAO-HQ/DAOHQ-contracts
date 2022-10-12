@@ -77,7 +77,7 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         for(uint i = 0; i<components.length; i++){
             _executeswap(components[i], cumulativeShare, ethVal, indexToken);
         }
-        externalWeth = WETH.balanceOf(address(this));
+        externalWeth = (WETH.balanceOf(address(this)) * 995) / 1000;
         //TODO: Alot of batching here will save gas
         for(uint i =0; i < _externals.length; i++){
             IToken.externalPosition memory position = _externals[i];
@@ -146,6 +146,8 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
     }
 
     function redeem(IToken indexToken, uint qty, address to) external nonReentrant{
+        //NOTE: This function must only be called with verified qtys avail for bridging on side chains
+        //Risk loss of funds if not checked
         require(indexToken.balanceOf(to) >= qty, "User does not have sufficeint balance");
         
         address[] memory components = indexToken.getComponents();
@@ -153,7 +155,6 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         for(uint i = 0; i<components.length; i++){
             funds += _executeSwaptoETH(components[i], qty, indexToken);
         }
-        //TODO: check to ensure external total > .02 ETH
         IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
         //TODO: batching here will save gas
         for(uint i =0; i < _externals.length; i++){

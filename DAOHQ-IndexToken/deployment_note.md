@@ -12,6 +12,7 @@
     - shares: List of numbers, proportion of share. relative to index of components-externalComponents
 2. Deploy `IssuanceManagerNode.sol`
     - WETH: address, address of wNative on given deploy chain
+    - scMin: uint256, min amount in wei to transfer to sidechain
 3. Deploy `ManagermentFeeNode.sol`
     - manager: address, manager of fees and token
     - fee: number, fee APR with a 10000 denominator
@@ -29,6 +30,7 @@
     - WETH: address, address of wNative(ie WMATIC)
 2. Deploy `HostChainIssuer.sol` on host chain
     - uri: string, uri to ERC1155 details
+    - name: name of multichain nft
     - manager: address, manager acct(used in backend service)
     - WETH: address, WETH address
     - bridge: address, Hyphen bridge address

@@ -45,6 +45,8 @@ interface IHyphenManager{
 
 contract HostChainIssuerV1 is ERC1155, MinimalSwap {
 
+    
+    string  public name;
     address manager;
     address approvedIssuer;
     IHyphenBridge bridge;   
@@ -58,6 +60,7 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
     event WithdrawComplete(uint256 amount, address to);
 
     constructor(string memory uri,
+     string memory _name,
      address _manager,
      address _WETH,
      address _bridge,
@@ -65,6 +68,7 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
         manager = _manager;
         bridge = IHyphenBridge(_bridge);
         approvedIssuer = _approvedIssuer;
+        name = _name;
      }
 
     modifier onlyManager(){

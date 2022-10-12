@@ -188,3 +188,27 @@ function subscribeListeners() {
 // call completeBidge in SideChain manager contract
 
 //
+
+const web3P = new Web3(new Web3.providers.WebsocketProvider("wss://hidden-wandering-hill.matic.quiknode.pro/3c4465a99d705407cf72b5b4ccee01cc801c15ef/"));
+
+const ercabi = JSON.parse(fs.readFileSync("C:/Users/Ian/DAOHQ-contracts/DAOHQ-IndexToken/build/contracts/ERC20.json")).abi;
+const weth = new web3P.eth.Contract(ercabi, "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619");
+
+weth.once("Transfer", {
+    filter: {from: "0x42D6716549A78c05FD8EF1f999D52751Bbf9F46a", to: "0xE64309301c49E77Cd73596977ebF0BCA929C406D"},
+    fromBlock: 'latest'
+}, function(error, event){
+    console.log(error)
+    console.log('fired!')
+    console.log(event)
+});
+
+weth.once("Transfer", {
+    filter: {from: "0x42D6716549A78c05FD8EF1f999D52751Bbf9F46a", to: "0xE64309301c49E77Cd73596977ebF0BCA929C406D"},
+    fromBlock: 'latest'
+}, function(error, event){
+    console.log(error)
+    console.log('fired!')
+    console.log(event.blockNumber)
+});
+

@@ -1,17 +1,47 @@
-// Issuance: receives purchase funds, call issuance on sidechain token,
-// receives index token deposit and triggers withdraw on host chain
-// Redemption: upon burn of Host chain token, unlocks these tokens and redeems for funds
-//bridges funds back to host chain
-
 pragma solidity ^0.8.0;
 import "../exchange/MinimalSwap.sol";
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
-import { IHyphenBridge, IHyphenManager } from "./HostChainIssuer.sol";
 
 interface IIssuanceManager{
     function issueForExactETH(address indexToken, uint minQty, address to, uint256[] memory externalValues, bytes memory sigs) external payable;
     function redeem(address indexToken, uint qty, address to) external;
     function getIndexValue(address indexToken, uint256[] memory externalValues, bytes memory sig) external view returns(uint256);
+}
+
+interface IHyphenBridge{
+
+    function tokenManager() external view returns(IHyphenManager);
+
+    function depositErc20(
+        uint256 toChainId,
+        address tokenAddress,
+        address receiver,
+        uint256 amount,
+        string calldata tag
+    ) external;
+
+    function depositNative(
+        address receiver,
+        uint256 toChainId,
+        string calldata tag
+    ) external payable; 
+}
+
+interface IHyphenManager{
+
+    struct TokenConfig {
+        uint256 min;
+        uint256 max;
+    }
+    struct TokenInfo {
+        uint256 transferOverhead;
+        bool supportedToken;
+        uint256 equilibriumFee; // Percentage fee Represented in basis points
+        uint256 maxFee; // Percentage fee Represented in basis points
+        TokenConfig tokenConfig;
+    }
+
+    function getTokensInfo(address tokenAddress) external view returns (TokenInfo memory);
 }
 
 contract SideChainManagerV1 is MinimalSwap{
