@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 
 interface IHostChainManager{
-    function depositWETH(uint256 amtWETH, uint256 chainId) external returns(uint64);
+    function depositWETH(uint256 chainId) external payable;
     function withdrawFunds(uint256 amtToken, uint256 id, address toUser) external;
     function balanceOf(address account, uint256 id) external view returns (uint256);
     function safeTransferFrom(
@@ -38,7 +38,7 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         uint256 share = indexToken.getShare(component);
         uint256 value = (msgVal * share) / cumulativeShare;
 
-        return _rawPoolSwap(component, value, address(indexToken), true);
+        return _rawPoolSwap(component, value, address(indexToken), address(this), true);
     }
 
     function _executeSwaptoETH(address pool, uint256 indexQty, IToken indexToken)
@@ -52,9 +52,9 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         }
 
         indexToken.approveComponent(token, address(this), amountIn);
-        IERC20(token).transferFrom(address(indexToken), address(this), amountIn);
+        //IERC20(token).transferFrom(address(indexToken), address(this), amountIn);
 
-        amountOut = _rawPoolSwap(pool, amountIn, address(this), false);
+        amountOut = _rawPoolSwap(pool, amountIn, address(this), address(indexToken), false);
     }
 
     function _executeExternalSwaptoETH(IToken indexToken, IToken.externalPosition memory position, uint256 qty, address to)
@@ -78,14 +78,14 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
             _executeswap(components[i], cumulativeShare, ethVal, indexToken);
         }
         externalWeth = (WETH.balanceOf(address(this)) * 995) / 1000;
-        //TODO: Alot of batching here will save gas
+        //TODO: Alot of batching here can save gas
         for(uint i =0; i < _externals.length; i++){
             IToken.externalPosition memory position = _externals[i];
             uint256 share = _getExternalShare(indexToken,  position.externalContract, position.id);
-            uint256 value = (ethVal * share) / cumulativeShare;
-            require(value >= scMin, "Insufficient side chain bridge amount, add additional value");
-            WETH.approve(position.externalContract, value);
-            IHostChainManager(position.externalContract).depositWETH(value, position.id);
+            uint256 val = (ethVal * share) / cumulativeShare;
+            require(val >= scMin, "Insufficient side chain bridge amount, add additional value");
+            WETH.withdraw(val);
+            IHostChainManager(position.externalContract).depositWETH{value: val}(position.id);
         }
     }
 
@@ -184,7 +184,7 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
             IERC20 token = IERC20(_getPoolToken(component));
             require(token.balanceOf(address(indexToken)) == 0 &&
             token.balanceOf(address(this)) == 0, "Token not exited properly");
-            _rawPoolSwap(components[replacementIndex[i]], amountWOut, address(indexToken), true);
+            _rawPoolSwap(components[replacementIndex[i]], amountWOut, address(indexToken), address(this), true);
         }
         if(WETH.balanceOf(address(this)) - preBalance > 0){
             IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();

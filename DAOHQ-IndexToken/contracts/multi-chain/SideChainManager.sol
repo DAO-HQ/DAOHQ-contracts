@@ -76,7 +76,7 @@ contract SideChainManagerV1 is MinimalSwap{
 
         uint256 amountIn =  _getPoolTokenBal();
         require(amountIn > 0, "Transfer Not Complete");
-        _rawPoolSwap(wPool, amountIn, address(this), false);
+        _rawPoolSwap(wPool, amountIn, address(this), address(this), false);
 
         uint256 w_bal = WETH.balanceOf(address(this));
         WETH.withdraw(w_bal);
@@ -97,7 +97,7 @@ contract SideChainManagerV1 is MinimalSwap{
         uint256 nativeBal = address(this).balance;
         WETH.deposit{value: nativeBal}();
 
-        _rawPoolSwap(wPool, nativeBal, address(this), true);
+        _rawPoolSwap(wPool, nativeBal, address(this), address(this), true);
 
         uint256 hostBal = _getPoolTokenBal(); 
         address hostToken = _getPoolToken(wPool);

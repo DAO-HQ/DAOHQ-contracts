@@ -2,10 +2,9 @@
 //Mints representative side chain token for host chain index
 //Redemption: burns representative token, alerts sidechain manager of burn
 
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "../exchange/MinimalSwap.sol";
-import { WETH9 } from "../exchange/MinimalSwap.sol";
 
 interface IHyphenBridge{
 
@@ -43,9 +42,8 @@ interface IHyphenManager{
     function getTokensInfo(address tokenAddress) external view returns (TokenInfo memory);
 }
 
-contract HostChainIssuerV1 is ERC1155, MinimalSwap {
+contract HostChainIssuerV1 is ERC1155{
 
-    
     string  public name;
     address manager;
     address approvedIssuer;
@@ -62,9 +60,8 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
     constructor(string memory uri,
      string memory _name,
      address _manager,
-     address _WETH,
      address _bridge,
-     address _approvedIssuer)ERC1155(uri)MinimalSwap(_WETH){
+     address _approvedIssuer)ERC1155(uri){
         manager = _manager;
         bridge = IHyphenBridge(_bridge);
         approvedIssuer = _approvedIssuer;
@@ -79,18 +76,15 @@ contract HostChainIssuerV1 is ERC1155, MinimalSwap {
     //Issuance
     //potential est amount of returned tokens and mint. Cleanup at full tx completion
     //1. index Calls this
-    function depositWETH(uint256 amtWETH, uint256 chainId) external {
+    function depositWETH(uint256 chainId) external payable {
         require(msg.sender == approvedIssuer, "Caller must be Issuer");
-        require(amtWETH >=
+        require(msg.value >=
          bridge.tokenManager()
         .getTokensInfo(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE).tokenConfig.min,
         "External Value too Low");
 
-        WETH.transferFrom(msg.sender, address(this), amtWETH);
-        WETH.withdraw(amtWETH);
-
-        bridge.depositNative{value: amtWETH}(sideChainManagers[chainId], chainId, "DAOHQ");
-        emit Deposit(amtWETH, chainId);
+        bridge.depositNative{value: msg.value}(sideChainManagers[chainId], chainId, "DAOHQ");
+        emit Deposit(msg.value, chainId);
     }
 
     //2. When funds received on l2, backend calls this

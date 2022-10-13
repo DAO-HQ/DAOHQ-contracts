@@ -38,13 +38,14 @@ contract MinimalSwap{
         return numerator/denominator;
     }
 
-    function _rawPoolSwap(address poolAddr, uint256 amountIn, address to, bool fromWETH) internal returns(uint256) {
+    //From should be address for all cases, but redeem
+    function _rawPoolSwap(address poolAddr, uint256 amountIn, address to, address from, bool fromWETH) internal returns(uint256) {
         uint256 amountOut = _getAmountOut(poolAddr, amountIn, fromWETH);
         IUniswapV2Pair pool = IUniswapV2Pair(poolAddr);
         (address token0, address token1) = (pool.token0(), pool.token1());
         WETH9 tokenIn = fromWETH ? WETH : token0 == address(WETH) ? WETH9(token1) : WETH9(token0);
         (uint256 amount0out, uint256 amount1out) = address(tokenIn) == token0 ? (uint256(0), amountOut) : (amountOut, uint256(0));
-        tokenIn.transfer(poolAddr, amountIn);
+        tokenIn.transferFrom(from, poolAddr, amountIn);
         pool.swap(amount0out, amount1out, to, new bytes(0));
         return amountOut;
     }
