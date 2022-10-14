@@ -6,7 +6,6 @@ import "../exchange/MinimalSwap.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import { IUniswapV2Pair, WETH9 } from "../exchange/MinimalSwap.sol";
 
 interface IHostChainManager{
     function depositWETH(uint256 chainId) external payable;
@@ -69,24 +68,27 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
     
     function _swapEthForAll(IToken indexToken, uint256 ethVal,
         address[] memory components, IToken.externalPosition[] memory _externals)
-        private returns(uint256 externalWeth){
+        private returns(uint256){
 
         uint256 cumulativeShare = indexToken.getCumulativeShare();
-        WETH.deposit{value: msg.value}();
-        //Buy each component
-        for(uint i = 0; i<components.length; i++){
-            _executeswap(components[i], cumulativeShare, ethVal, indexToken);
-        }
-        externalWeth = (WETH.balanceOf(address(this)) * 995) / 1000;
+        uint256 externalWeth = 0;
         //TODO: Alot of batching here can save gas
         for(uint i =0; i < _externals.length; i++){
             IToken.externalPosition memory position = _externals[i];
             uint256 share = _getExternalShare(indexToken,  position.externalContract, position.id);
             uint256 val = (ethVal * share) / cumulativeShare;
             require(val >= scMin, "Insufficient side chain bridge amount, add additional value");
-            WETH.withdraw(val);
             IHostChainManager(position.externalContract).depositWETH{value: val}(position.id);
+            externalWeth += val;
         }
+
+        WETH.deposit{value: msg.value - externalWeth}();
+        //Buy each component
+        for(uint i = 0; i<components.length; i++){
+            _executeswap(components[i], cumulativeShare, ethVal, indexToken);
+        }
+
+        return (externalWeth * 995) / 1000;
     }
 
     function _getExternalShare(IToken indexToken, address contractAddress, uint256 id) private view returns (uint256){

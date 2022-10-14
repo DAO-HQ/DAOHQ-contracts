@@ -1,6 +1,7 @@
 const IndexToken = artifacts.require("IndexToken");
 const FeeNode = artifacts.require("ManagementFeeNode");
 const IssuanceManager = artifacts.require("IssuanceManager");
+const HostChainIssuer = artifacts.require("HostChainIssuerV1");
 
 module.exports = async function (deployer, network, accounts) {
     let WETH;
@@ -18,5 +19,8 @@ module.exports = async function (deployer, network, accounts) {
     if(network != "eth_dev"){
         await instance
         .seedNewSet(indInst.address, 10000000, accounts[2], {from: accounts[2], value: web3.utils.toBN("570800000000000000")});
+    }else{
+        const hcInst = await HostChainIssuer.deployed();
+        await hcInst.updateIssuer(instance.address);
     }
 };
