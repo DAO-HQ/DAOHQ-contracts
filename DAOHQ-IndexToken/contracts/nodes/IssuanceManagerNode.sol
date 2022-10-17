@@ -122,6 +122,7 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
             bytes32 _hash = keccak256(abi.encodePacked(externalValues)).toEthSignedMessageHash();
             address _signer = _hash.recover(sigs);
             require(_signer == externalSigner, "Invalid External Data");
+            require(block.timestamp < externalValues[externalValues.length - 1], "Quote expired");
         }
     }
 
