@@ -50,12 +50,11 @@ contract HostChainIssuerV1 is ERC1155{
     IHyphenBridge bridge;   
 
     mapping(uint256 => address) sideChainManagers;
-    
+    mapping(uint256 => uint256) private _pendingWETH;
+
     event Deposit(uint256 amtWETH, uint256 chainId);
 
     event Withdraw(uint256 amt, uint256 chainId, address toUser, address hostContract);
-
-    event WithdrawComplete(uint256 amount, address to);
 
     constructor(string memory uri,
      string memory _name,
@@ -84,11 +83,14 @@ contract HostChainIssuerV1 is ERC1155{
         "External Value too Low");
 
         bridge.depositNative{value: msg.value}(sideChainManagers[chainId], chainId, "DAOHQ");
+        _pendingWETH[chainId] += msg.value;
         emit Deposit(msg.value, chainId);
     }
 
     //2. When funds received on l2, backend calls this
-    function notifyBridgeCompletion(uint256 toIssue, uint256 chainId, address indexToken) external onlyManager{
+    function notifyBridgeCompletion(uint256 toIssue, uint256 chainId, uint256 spent, address indexToken)
+     external onlyManager{
+        _pendingWETH[chainId] -= spent;
         _setApprovalForAll(indexToken, approvedIssuer, true);
         _mint(indexToken, chainId, toIssue, "");
     }
@@ -99,6 +101,10 @@ contract HostChainIssuerV1 is ERC1155{
         require(balanceOf(msg.sender, id) >= amtToken, "Insufficient balance of ERC1155");
         _burn(msg.sender, id, amtToken);
         emit Withdraw(amtToken, id, toUser, address(this));
+    }
+
+    function getPendingWeth(uint256 chainId) external view returns(uint256){
+        return _pendingWETH[chainId];
     }
 
     function addSideChain(uint256 chainId, address scManager) external onlyManager{

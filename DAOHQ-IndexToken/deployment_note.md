@@ -16,10 +16,13 @@
 3. Deploy `ManagermentFeeNode.sol`
     - manager: address, manager of fees and token
     - fee: number, fee APR with a 10000 denominator
+    - initialToken: address, address of first token to use fee node
 4. Add Nodes to IndexToken via manager account
     - `IndexToken.methods.addNode(IssuanceAddress).send({from: manager})`
     - `IndexToken.methods.addNode(ManagerFeeNode).send({from: manager})`
-5. Seed IndexToken. Must occur before IssuanceAddress
+5. (optional) If managementNode already deployed, add token to node
+    - `ManagermentFeeNode.methods.addToken(IndexToken).send({from: manager})`
+6. Seed IndexToken. Must occur before IssuanceAddress
     - `IssuanceManager.methods.seedNewSet(indexToken, 0, wallet).send({value: someValue})`
 
 ## MultiChain Deployment
@@ -34,16 +37,16 @@
     - manager: address, manager acct(used in backend service)
     - WETH: address, WETH address
     - bridge: address, Hyphen bridge address
-    - approvedIssuer: address, IssuanceManagerNode address\
-    2.1 For each side chain deployment\
+    - approvedIssuer: address, IssuanceManagerNode address \
+    2.1 For each side chain deployment \
     - `HostChainIssuer.methods.addSideChain(chainId, scAddress).send({from:manager})`
 3. Add external components to IndexToken. For each chainId
     - `IndexToken.addEditExternalPosition(hash(HostChainIssuer, chainId), share).send()`
 4. Start Backend service. Addresses required
     - Host IndexToken
     - Host IssuanceManager
-    - HostChainIssuer\ 
-    For each Side Chain\ 
+    - HostChainIssuer \ 
+    For each Side Chain \ 
     - Side token
     - Side IssuanceAddress
     - SidedChainManager

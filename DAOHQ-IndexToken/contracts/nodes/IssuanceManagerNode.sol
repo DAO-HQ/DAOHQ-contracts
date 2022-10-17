@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 interface IHostChainManager{
+    function getPendingWeth(uint256 id) external view returns(uint256);
     function depositWETH(uint256 chainId) external payable;
     function withdrawFunds(uint256 amtToken, uint256 id, address toUser) external;
     function balanceOf(address account, uint256 id) external view returns (uint256);
@@ -16,8 +17,7 @@ interface IHostChainManager{
         address to,
         uint256 id,
         uint256 amount,
-        bytes calldata data
-    ) external;
+        bytes calldata data) external;
 }
 
 contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
@@ -87,8 +87,8 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         for(uint i = 0; i<components.length; i++){
             _executeswap(components[i], cumulativeShare, ethVal, indexToken);
         }
-
-        return (externalWeth * 995) / 1000;
+        externalWeth = externalWeth > 0 ? (externalWeth * 995) / 1000 : externalWeth;
+        return externalWeth;
     }
 
     function _getExternalShare(IToken indexToken, address contractAddress, uint256 id) private view returns (uint256){
@@ -105,8 +105,11 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
             wethValue += _getAmountOut(components[i], bal, false);
         }
         for(uint i = 0; i < _externals.length; i++){
-            uint256 bal = IHostChainManager(_externals[i].externalContract).balanceOf(address(indexToken), uint256(_externals[i].id));
-            wethValue += (bal * externalValues[i]) / 10**5;
+            uint256 bal = IHostChainManager(_externals[i].externalContract).balanceOf(address(indexToken), _externals[i].id);
+            uint256 pendingbal = IHostChainManager(_externals[i].externalContract).getPendingWeth(_externals[i].id);
+            bal = bal > 0 ? ((bal * externalValues[i]) / 10**5) : bal;
+            pendingbal = pendingbal > 0 ? (pendingbal * 995) / 1000 : pendingbal;
+            wethValue += bal + pendingbal;
         }
     }
 
