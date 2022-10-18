@@ -42,7 +42,7 @@ interface IHyphenManager{
     function getTokensInfo(address tokenAddress) external view returns (TokenInfo memory);
 }
 
-contract HostChainIssuerV1 is ERC1155{
+contract HostChainIssuerBeta is ERC1155{
 
     string  public name;
     address manager;

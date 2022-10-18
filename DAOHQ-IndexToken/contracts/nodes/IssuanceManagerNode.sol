@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-//import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../IToken.sol";
 import "../exchange/MinimalSwap.sol";
 import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
@@ -20,7 +19,7 @@ interface IHostChainManager{
         bytes calldata data) external;
 }
 
-contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
+contract IssuanceManagerBeta is MinimalSwap, ERC1155Holder, ReentrancyGuard{
     using ECDSA for bytes32;
 
     uint256 private constant PRECISION = 10 ** 12;
@@ -68,11 +67,11 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
     
     function _swapEthForAll(IToken indexToken, uint256 ethVal,
         address[] memory components, IToken.externalPosition[] memory _externals)
-        private returns(uint256){
+        private {
 
         uint256 cumulativeShare = indexToken.getCumulativeShare();
         uint256 externalWeth = 0;
-        //TODO: Alot of batching here can save gas
+        //TODO: batching here can save gas
         for(uint i =0; i < _externals.length; i++){
             IToken.externalPosition memory position = _externals[i];
             uint256 share = _getExternalShare(indexToken,  position.externalContract, position.id);
@@ -87,11 +86,10 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         for(uint i = 0; i<components.length; i++){
             _executeswap(components[i], cumulativeShare, ethVal, indexToken);
         }
-        externalWeth = externalWeth > 0 ? (externalWeth * 995) / 1000 : externalWeth;
-        return externalWeth;
     }
 
-    function _getExternalShare(IToken indexToken, address contractAddress, uint256 id) private view returns (uint256){
+    function _getExternalShare(IToken indexToken, address contractAddress, uint256 id)
+     private view returns (uint256){
         address uid = address(uint160(uint256(keccak256(abi.encode(contractAddress, id)))));
         return indexToken.getShare(uid);
     }
@@ -122,7 +120,7 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
             bytes32 _hash = keccak256(abi.encodePacked(externalValues)).toEthSignedMessageHash();
             address _signer = _hash.recover(sigs);
             require(_signer == externalSigner, "Invalid External Data");
-            require(block.timestamp < externalValues[externalValues.length - 1], "Quote expired");
+            require(block.timestamp < externalValues[externalValues.length - 1], "Quote Expired");
         }
     }
 
@@ -138,15 +136,14 @@ contract IssuanceManager is MinimalSwap, ERC1155Holder, ReentrancyGuard{
     function issueForExactETH(IToken indexToken, uint minQty, address to,
      uint256[] memory externalValues, bytes memory sigs) external payable {
         _validateExternalData(externalValues, sigs);
-        //tradeoff for stack too deep 
-        //uint256 preSupply = indexToken.totalSupply();
+        uint256 preSupply = indexToken.totalSupply();
         address[] memory components = indexToken.getComponents();
         IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
         uint256 preValue = _valueSet(indexToken, components, _externals, externalValues);
-        uint256 wethExt = _swapEthForAll(indexToken, msg.value, components, _externals);
+        _swapEthForAll(indexToken, msg.value, components, _externals);
         uint256 outputTokens =
-         ((((indexToken.totalSupply() * ( wethExt + _valueSet(indexToken, components, _externals, externalValues)))
-         / preValue) - indexToken.totalSupply()) / PRECISION) * PRECISION; 
+         ((((preSupply * _valueSet(indexToken, components, _externals, externalValues))
+         / preValue) - preSupply) / PRECISION) * PRECISION; 
         require(outputTokens >= minQty, "Insuffiecient return amount");
         indexToken.mint(to, outputTokens);
     }

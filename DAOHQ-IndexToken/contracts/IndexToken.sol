@@ -7,7 +7,7 @@ import "./IToken.sol";
 contract IndexToken is ERC20, ERC1155Holder, IToken{
 
     address feeWallet;
-    uint256 private  transferFee = 30;
+    uint256 private transferFee = 30;
     uint256 public immutable basePrice;
     uint256 private cumulativeShare = 0;
     address[] private components;
@@ -152,11 +152,11 @@ contract IndexToken is ERC20, ERC1155Holder, IToken{
     }
 
     function addManager(address newManager) external onlyManager{
-        managers[newManager] == true;
+        managers[newManager] = true;
     }
 
     function transfer(address to, uint256 amount)
-     public virtual override(ERC20,IERC20) returns (bool) {
+     public virtual override(ERC20, IERC20) returns (bool) {
         address owner = _msgSender();
         uint256 feeAmount = _transferFeeAmount(amount);
         //TODO: create custom internal ERC _transfer to save gas

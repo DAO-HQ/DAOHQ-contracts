@@ -1,6 +1,6 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "../IToken.sol";
-import { IUniswapV2Pair } from "./IssuanceManagerNode.sol";
 
 contract ManagementFeeNode {
 
