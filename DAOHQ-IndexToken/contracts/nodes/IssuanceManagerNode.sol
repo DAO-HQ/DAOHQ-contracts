@@ -148,6 +148,7 @@ contract IssuanceManagerBeta is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         indexToken.mint(to, outputTokens);
     }
 
+    //Consider Pausing this while pendingWeth > 0;
     function redeem(IToken indexToken, uint qty, address to) external nonReentrant{
         //NOTE: This function must only be called with verified qtys avail for bridging on side chains
         //Risk loss of funds if not checked
