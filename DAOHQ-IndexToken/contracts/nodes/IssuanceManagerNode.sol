@@ -162,6 +162,7 @@ contract IssuanceManagerBeta is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         IToken.externalPosition[] memory _externals = indexToken.getExternalComponents();
         //TODO: batching here will save gas
         for(uint i =0; i < _externals.length; i++){
+            require(IHostChainManager(_externals[i].externalContract).getPendingWeth(_externals[i].id) < scMin, "Pending external txs, redemption locked");
             _executeExternalSwaptoETH(indexToken, _externals[i], qty, to);
         }
         WETH.withdraw(funds);
