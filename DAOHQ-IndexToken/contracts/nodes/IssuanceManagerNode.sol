@@ -61,8 +61,11 @@ contract IssuanceManagerBeta is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         if(qty > 0){
             amountIn = (qty * amountIn) / indexToken.totalSupply();
         }
-        IHostChainManager(position.externalContract).safeTransferFrom(address(indexToken), address(this), uint256(position.id), amountIn, "");
-        IHostChainManager(position.externalContract).withdrawFunds(amountIn, uint256(position.id), to);
+        //Minimum value supported by relay
+        if(amountIn > 1e14){
+            IHostChainManager(position.externalContract).safeTransferFrom(address(indexToken), address(this), uint256(position.id), amountIn, "");
+            IHostChainManager(position.externalContract).withdrawFunds(amountIn, uint256(position.id), to);
+        }
     }
     
     function _swapEthForAll(IToken indexToken, uint256 ethVal,
@@ -75,10 +78,12 @@ contract IssuanceManagerBeta is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         for(uint i =0; i < _externals.length; i++){
             IToken.externalPosition memory position = _externals[i];
             uint256 share = _getExternalShare(indexToken,  position.externalContract, position.id);
-            uint256 val = (ethVal * share) / cumulativeShare;
-            require(val >= scMin, "Insufficient side chain bridge amount, add additional value");
-            IHostChainManager(position.externalContract).depositWETH{value: val}(position.id);
-            externalWeth += val;
+            if(share > 0){
+                uint256 val = (ethVal * share) / cumulativeShare;
+                require(val >= scMin, "Insufficient side chain bridge amount, add additional value");
+                IHostChainManager(position.externalContract).depositWETH{value: val}(position.id);
+                externalWeth += val;
+            }
         }
 
         WETH.deposit{value: msg.value - externalWeth}();
@@ -109,10 +114,6 @@ contract IssuanceManagerBeta is MinimalSwap, ERC1155Holder, ReentrancyGuard{
             pendingbal = pendingbal > 0 ? (pendingbal * 995) / 1000 : pendingbal;
             wethValue += bal + pendingbal;
         }
-    }
-
-    function _exit(address component, IToken indexToken) private returns (uint256 amountOut){
-        return _executeSwaptoETH(component, 0, indexToken);
     }
 
     function _validateExternalData(uint256[] memory externalValues, bytes memory sigs) private view{
@@ -148,11 +149,10 @@ contract IssuanceManagerBeta is MinimalSwap, ERC1155Holder, ReentrancyGuard{
         indexToken.mint(to, outputTokens);
     }
 
-    //Consider Pausing this while pendingWeth > 0;
     function redeem(IToken indexToken, uint qty, address to) external nonReentrant{
         //NOTE: This function must only be called with verified qtys avail for bridging on side chains
         //Risk loss of funds if not checked
-        require(indexToken.balanceOf(to) >= qty, "User does not have sufficeint balance");
+        require(qty > 0 && indexToken.balanceOf(to) >= qty, "User does not have sufficeint balance");
         
         address[] memory components = indexToken.getComponents();
         uint256 funds = 0;
@@ -179,13 +179,14 @@ contract IssuanceManagerBeta is MinimalSwap, ERC1155Holder, ReentrancyGuard{
 
     function rebalanceExitedFunds(IToken indexToken, address[] memory exitedPositions, uint256[] memory replacementIndex)
      external {
+        require(msg.sender == externalSigner, "Restricted function");
         //sells out of exited positions and buys selected index(typically the token that replaced it)
         uint preBalance = WETH.balanceOf(address(this));
         address[] memory components = indexToken.getComponents();
         for(uint i = 0; i < exitedPositions.length; i++){
             address component = exitedPositions[i];
             require(indexToken.getShare(component) == 0, "position not exited");
-            uint256 amountWOut= _exit(component, indexToken);
+            uint256 amountWOut = _executeSwaptoETH(component, 0, indexToken);
             IERC20 token = IERC20(_getPoolToken(component));
             require(token.balanceOf(address(indexToken)) == 0 &&
             token.balanceOf(address(this)) == 0, "Token not exited properly");

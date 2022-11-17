@@ -110,7 +110,15 @@ contract IndexToken is ERC20, ERC1155Holder, IToken{
         if(share[comp] == 0){
             externalPosition memory ext;
             (ext.externalContract, ext.id) = abi.decode(positionData, (address, uint256));
-            externalComponents.push(ext);
+            uint256 length = externalComponents.length;
+            for (uint256 i = 0; i < length; i++) {
+                if (externalComponents[i].externalContract == ext.externalContract && externalComponents[i].id == ext.id) {
+                    break;
+                }
+                if(i == length - 1){
+                    externalComponents.push(ext);
+                }
+            }   
         }
         _updateCumulativeShare(_share, comp);
         share[comp] = _share;
