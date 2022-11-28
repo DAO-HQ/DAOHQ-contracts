@@ -9,7 +9,7 @@ module.exports = async function (deployer, network, accounts) {
         console.log(inIn.address);
         console.log(isIn.address);
         await deployer.deploy(SideChainManager,
-             "0x0Aa3174De081C9A93CEA8805B7B792cF26aE3a15",
+             "0x2A5c2568b10A0E826BfA892Cf21BA7218310180b",
              "0xadbF1854e5883eB8aa7BAf50705338739e558E5b",
              "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270");
     }

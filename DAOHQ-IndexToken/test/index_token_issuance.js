@@ -31,7 +31,7 @@ contract("IssuanceManagerNode", function (accounts) {
   it("should purchase 1 token to seed", async function(){
     const IssueInst = await IssuanceManager.deployed();
     const indexInst = await IndexToken.deployed();
-    const startPrice = web3.utils.toBN("57080000000000000");
+    const startPrice = web3.utils.toBN("83300000000000000");
     await IssueInst.seedNewSet(indexInst.address,
        0, accounts[2], {from:accounts[2], value: startPrice});
     const bal = web3.utils.toBN(await indexInst.balanceOf(accounts[2]))
@@ -42,7 +42,7 @@ contract("IssuanceManagerNode", function (accounts) {
     try{
       const IssueInst = await IssuanceManager.deployed();
       const indexInst = await IndexToken.deployed();
-      const startPrice = web3.utils.toBN("57080000000000000");
+      const startPrice = web3.utils.toBN("83300000000000000");
       await IssueInst.seedNewSet(indexInst.address,
          0, accounts[2], {from:accounts[2], value: startPrice});
       assert.isTrue(false);
@@ -54,7 +54,7 @@ contract("IssuanceManagerNode", function (accounts) {
   it("Should purch ~ 1 new token after launch", async function(){
     const IssueInst = await IssuanceManager.deployed();
     const indexInst = await IndexToken.deployed();
-    const startPrice = web3.utils.toBN("57080000000000000");
+    const startPrice = web3.utils.toBN("83300000000000000");
 
     //const expectedOut = await IssueInst.getAmountOut(indexInst.address, startPrice);
     const preVal = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
@@ -72,7 +72,7 @@ contract("IssuanceManagerNode", function (accounts) {
     try{
       const IssueInst = await IssuanceManager.deployed();
       const indexInst = await IndexToken.deployed();
-      const startPrice = web3.utils.toBN("57080000000000000");
+      const startPrice = web3.utils.toBN("83300000000000000");
       await IssueInst.issueForExactETH(indexInst.address, BN(1e20), accounts[3], [], [],{from: accounts[3], value: startPrice});
       assert.isTrue(false);
     }catch{
@@ -101,7 +101,7 @@ contract("IssuanceManagerNode", function (accounts) {
    it("Should redeem for expected value", async function(){
     const IssueInst = await IssuanceManager.deployed();
     const indexInst = await IndexToken.deployed();
-    const startPrice = web3.utils.toBN("57080000000000000");
+    const startPrice = web3.utils.toBN("83300000000000000");
     await IssueInst.issueForExactETH(indexInst.address, 0, accounts[3], [], [], {from: accounts[3], value: startPrice});
     const preVal1 = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     const preBal = BN(await web3.eth.getBalance(accounts[2]));
@@ -139,16 +139,16 @@ contract("IssuanceManagerNode", function (accounts) {
     const indexInst = await IndexToken.deployed();
 
     const newComponent = "0x26aAd2da94C59524ac0D93F6D6Cbf9071d7086f2";
-    const oldComponent = "0x11b1f53204d03E5529F09EB3091939e4Fd8c9CF3";
-    const preBal = BN(await IssueInst.getTokenQty(indexInst.address, 4))
+    const oldComponent = "0x6AdA49AECCF6E556Bb7a35ef0119Cc8ca795294A";
+    const preBal = BN(await IssueInst.getTokenQty(indexInst.address, 23))
     const preVal = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     await indexInst.replaceComponent(newComponent, oldComponent, 1000);
 
-    const preBalNew = BN(await IssueInst.getTokenQty(indexInst.address, 4));
+    const preBalNew = BN(await IssueInst.getTokenQty(indexInst.address, 23));
     assert.equal(preBalNew.toString(), "0", "Token not replaced");
 
-    await IssueInst.rebalanceExitedFunds(indexInst.address, [oldComponent], [4]);
-    const postBalNew = BN(await IssueInst.getTokenQty(indexInst.address, 4));
+    await IssueInst.rebalanceExitedFunds(indexInst.address, [oldComponent], [23]);
+    const postBalNew = BN(await IssueInst.getTokenQty(indexInst.address, 23));
     const postVal = BN(await IssueInst.getIndexValue(indexInst.address, [], []));
     //console.log(preVal.toString(), postVal.toString());
     assert.isTrue(postBalNew > BN(0));
