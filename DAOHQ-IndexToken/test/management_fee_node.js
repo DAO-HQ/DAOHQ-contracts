@@ -47,8 +47,8 @@ contract("management_fee_node", function (accounts) {
     const IssueInst = await IssuanceManager.deployed();
     const indexInst = await IndexToken.deployed();
     const startPrice = web3.utils.toBN("570800000000000000");
-    await IssueInst.seedNewSet(indexInst.address,
-       0, accounts[2], {from:accounts[2], value: startPrice});
+    //await IssueInst.seedNewSet(indexInst.address,
+    //   0, accounts[2], {from:accounts[2], value: startPrice});
     const timestamp = await currentTimestamp();
     //await ethers.provider.send("evm_mine", [timestamp + 86400]);
     await advanceBlockAtTime(timestamp + 86400);
