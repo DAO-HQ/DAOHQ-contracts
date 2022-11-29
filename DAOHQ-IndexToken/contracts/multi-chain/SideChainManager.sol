@@ -85,7 +85,7 @@ contract SideChainManagerV1 is MinimalSwap{
         IIssuanceManager(issueNode)
         .issueForExactETH{value: w_bal}(indexToken, 1000, address(this), new uint256[](0), new bytes(0));
 
-        emit Issued(WETH9(indexToken).balanceOf(address(this)) - indexPrebal, amountIn);
+        emit Issued((WETH9(indexToken).balanceOf(address(this)) - indexPrebal) * 1e16 / 1e16, amountIn);
     }
 
     //prod flow: Receive Native, Wrap, swap for WETH, bridge
