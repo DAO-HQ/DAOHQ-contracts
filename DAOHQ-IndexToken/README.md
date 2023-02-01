@@ -1,7 +1,7 @@
 # DAOHQ Multi-Chain Index Token
 
 The DAOHQ Index Token protocol allows for ERC20 Tokens that can track an index of any number of underlying ERC20 components.
-The Index Token Protocol includes infrastructure to support Index Tokens with underlying components on sidechains and L2s other than mainnet.
+The Index Token Protocol includes infrastructure to support Index Tokens with underlying components on sidechains and L2s other than mainnet. The IndexToken.sol implementation allows for unlimited composability through future 'node' contracts.
 
 ## Deployments:
 
